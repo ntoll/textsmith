@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<section>
+    <p>{% trans %}Enter your username and password to connect.{% endtrans %}</p>
+    {% if error %}
+    <p style="color: red;">{{ error }}</p>
+    {% endif %}
+    <form action="{{ url_for('login') }}" method="post">
+        <p><label for="username">{% trans %}Username{% endtrans %}</label><br/>
+        <input type="text" name="username" autofocus></p>
+        <p><label for="password">{% trans %}Password{% endtrans %}</label><br/>
+        <input type="password" name="password"></p>
+        <p><input type="submit" value="{% trans %}Submit{% endtrans %}"></p>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    </form>
+</section>
+{% endblock %}

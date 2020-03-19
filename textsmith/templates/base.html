@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8"/>
+        <title>{% trans %}TextSmith ~ create and inhabit interactive textual worlds.{% endtrans %}</title>
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/tufte.css') }}">
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/latex.css') }}">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        {% block head %}{% endblock %}
+    </head>
+    <body>
+        <article>
+            <h1>TextSmith</h1>
+            <p class="subtitle">{% trans %}Create and inhabit interactive textual worlds.{% endtrans %}</p>
+            {% block content %}{% endblock %}
+        </article>
+        <footer>
+            <a href="/">TextSmith</a> is &copy; 2019 Nicholas Tollervey and
+            Andrew Smith.
+        </footer>
+    </body>
+</html>

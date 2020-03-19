@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+    <p>This is a multi-user textual world where the players make the content,
+    explore each others' creations and interact with each other. It's an
+    "old skool" MUD re-imagined for today.</p>
+
+    <p>In this instance, once logged in you'll find six distinct worlds to
+    explore and interact with. Try to stay in role!</p>
+
+    <p>The rest of this document explains, in very simple terms, what you're
+    able to do in the game.</p>
+
+    <h2 id="new_user">Create a New User</h2>
+
+    <p>Before you can play, you need to create a new user. For this you'll
+    need a unique username. Since this will be your "proper noun" in the game
+    it's a good idea to capitalize it. For instance, use "Nicholas", not
+    "nicholas". Usernames can't contain spaces and must be alpha-numeric.</p>
+
+    <p>Try to remember your password! Sadly, because of time constraints you'll
+    have to enter it as plain text when you login (see below).</p>
+
+    <p>Finally, give yourself an interesting description! (You can always
+    change this later.)</p>
+
+    <p><a href="{{ url_for('signup') }}">Click here to create your new
+    user</a>.</p>
+
+    <h2 id="login">Logging In</h2>
+
+    <p>Once you have a user, connect to the game via the handy
+    <a href="{{ url_for('client') }}">browser based client</a>.</p>
+
+    <p>Type instructions into the text box at the bottom of the screen. click
+    the "Send" button or use the CTRL-Enter hotkey combo to send the command
+    to the game.</p>
+    <p>Any response and the activities of other players will be displayed as
+    scrolling text above this box. That's right! It's a fun version of
+    Slack... ;-)</p>
+
+    <p>As the instructions on the client page suggest, you should use the
+    command:</p>
+
+    <pre>login username password</pre>
+
+    <p>But replace "username" and "password" with, you know, your real username
+    and password. :-D</p>
+
+    <p>If your login is a success you'll find yourself in the Welcome Room.
+    This is simply the first room all players find themselves in at the start
+    of their time in the game.</p>
+
+    <p>If there are any problems with your login, the application will say
+    so.</p>
+
+    <h2 id="firststeps">First Steps</h2>
+
+    <p>The basics are pretty simple really...</p>
+
+    <h3>Communication</h3>
+
+    <p>To say something start the command with a double quotation mark (")
+    followed by the text you want to say to everyone else in the current
+    room:</p>
+
+    <pre>"Hello world!</pre>
+
+    <p>This will result in something like, 'You say, "Hello world!"' appearing
+    in the game. Other players will see, 'Username says, "Hello world!"'
+    (where Username is replaced with your in-game username).</p>
+
+    <p>Similarly, you can <strong>shout</strong> (prepend your statement with an
+    exclamation mark (!)) and emote (use the colon (:) for this):
+
+    <pre>:smiles and waves to everyone</pre>
+
+    <p>Will result in 'Username smiles and waves to everyone' appearing
+    to everyone currently in the room.</p>
+
+    <p>Finally, you can say something to a specific player (although everyone
+    in your location will "overhear" you), by starting the command with their
+    @username:</p>
+
+    <pre>@andrew Hi there!</pre>
+
+    <p>Will make it appear to everyone that you say "Hi there!" to the user
+    called "andrew".</p>
+
+    <h3>Objects</h3>
+
+    <p>Everything in this world is an object, including the users, rooms and
+    exits. But "normal" objects are things within rooms or carried by the
+    players.</p>
+
+    <p>Every object has a name (alpha-numeric without spaces) and a fully
+    qualified name (username/objectname) which is unique. The app will try to
+    work out what you're refering to when you use objects in commands. However
+    sometimes you may need to disambiguate with the FQN (fully qualified name)
+    especially if you're changing things about the object.</p>
+
+    <p>Obviously you can "take" and "drop" objects as well as "look" at them
+    or "examine" them more closely. If you want to know what you're carrying
+    just use your "inventory".</p>
+
+    <p>A nice shortcut for objects you own (including rooms, exits and yourself
+    -- "me" and "here" are synonyms for yourself and the current location) is
+    to update their description:</p>
+
+    <pre>describe objectname A new description for the object</pre>
+
+    <p>Remember the description can be in
+    <a href="https://daringfireball.net/projects/markdown/" target="_none">Markdown
+    format</a> (as can anything to be output to the game). Markdown is an
+    easy to read, easy to write text-to-html converter. Follow the link
+    for a quick tutorial.</p>
+
+    <p>The cool thing about objects is that they have attributes, which
+    become verbs in the game. Say, for example, you had a "trumpet" object
+    which had a "play" attribute with the associated value
+    "You play the trumpet." then typing "play trumpet" will return the
+    associated value. This helps bring the world to life.</p>
+
+    <p>We did make a start on a simple LISP-y scripting language which could
+    kick in at this point, so objects could emote or write into the room or
+    to specific players, but we didn't have time to finish it! It'll come in
+    the next version. ;-)</p>
+
+    <h2 id="multimedia">Using Multimedia</h2>
+
+    <p>It's possible to embed images, audio and video into the world.</p>
+
+    <p>TextSmith does NOT host files for users. Links will need to be to
+    externally hosted multimedia assets.</p>
+
+    <p>To embed an image use the following markdown syntax:</p>
+
+    <pre>![alt text](/url/to/image.jpg)</pre>
+
+    <p>To embed audio use:</p>
+    
+    <pre>::audio[alt text](/url/to/sfx.mp3)</pre>
+
+    <p>Finally, to embed YouTube or Vimeo videos just include a link to the
+    page on the website for the video in question, and TextSmith will detect
+    and convert it to an embedded video.</p>
+
+    <h2 id="objects">Making Objects</h2>
+
+    <p>Of course, you want to make your own objects... in fact, that's really
+    the point of the game. It makes the place more intersting..!</p>
+
+    <p>This is a simple command:</p>
+
+    <pre>create objectname This is a description of the new object.</pre>
+
+    <p>You'll find the new object "objectname" is now in your inventory. It's
+    important to realise that the description can be multi-line and written as
+    Markdown. :-)</p>
+
+    <p>To add attributes use the following command:</p>
+
+    <pre>set object/fqn attributename Some value to associate with the
+    attribute on that object.</pre>
+
+    <p><strong>You must use the object's FQN</strong> when annotating.</p>
+
+    <p>To delete attributes simply:</p>
+
+    <pre>delete object/fqn attributename</pre>
+
+    <p><strong>All delete operations require the object's FQN</strong>.</p>
+
+    <p>To delete the object completely, it's just:</p>
+
+    <pre>delete object/fqn</pre>
+
+    <p>Finally, you may notice other people have cool objects, and you'd like
+    to have something similar. Happily you can clone them like this:</p>
+
+    <pre>clone object/fqn newname</pre>
+
+    <p>Et Voila! You'll find your copy residing in your inventory.</p>
+
+    <h3>Moving Around</h3>
+
+    <p>Whenever you enter a room or look at a room you'll see a list of
+    exit names leading from the room. To follow the exit, just type the exit
+    name.</p>
+
+    <p>If you want to know about the exits, why not "look" at them?</p>
+
+    <p>It's also possible to teleport to other rooms in the world, if you need
+    to get somewhere quickly. :-) Simple issue the teleport command with the
+    target room's FQN:</p>
+
+    <pre>teleport room/fqn</pre>
+
+    <p>The FQN of each room is displayed just under it's name when you look
+    at it or when you first enter the room.</p>
+
+    <h2 id="build">Building New Locations</h2>
+
+    <p>We hope you help to build lots of interesting new places in the world.
+    It's fun for the other players to explore your work! To create a new
+    room simply issue the following command:</p>
+
+    <pre>build newroomname A description of the new room.</pre>
+
+    <p>As with creating objects, the description can be multi-line and written
+    in Markdown.</p>
+
+    <p>While you might have a new room, you need to build at least two exits,
+    one to connect into it, the other to connect out.</p>
+
+    <p>To connect the current room to the new room, just issue:</p>
+
+    <pre>connect room/fqn exitname A description of the new exit.</pre>
+
+    <p>Typing the name of the new exit will take you to the target room, from
+    which you can create a new exit to any other room who's FQN you know.</p>
+</section>
+{% endblock %}

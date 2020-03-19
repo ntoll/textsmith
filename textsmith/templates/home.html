@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+    <p>{% trans %}Instructions:{% endtrans %}</p>
+    <ol>
+        <li><a href="{{ url_for('signup') }}">{% trans %}Sign up.{% endtrans %}</a></li>
+        <li><a href="{{ url_for('login') }}">{% trans %}Log in.{% endtrans %}</a></li>
+        <li><a href="{{ url_for('client') }}">{% trans %}Explore, create, collaborate and enjoy.{% endtrans %}</a></li>
+    </ol>
+    <p>{% trans %}The rest is explained in the game... if you're stuck{% endtrans %}
+    <a href="{{ url_for('help') }}">{% trans %}Read the docs.{% endtrans %}</a></p>
+</section>
+{% endblock %}

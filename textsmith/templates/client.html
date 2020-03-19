@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block head %}
+    <script
+        src="https://code.jquery.com/jquery-2.2.4.min.js"
+        integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44="
+        crossorigin="anonymous"></script>
+    <script src="{{ url_for('static', filename='js/client.js') }}"></script>
+    <style>
+    footer {
+        display: none;
+    }
+    .userinput {
+        width: 100%;
+    }
+    #input {
+        font-size: 1.4rem;
+        width: 50%;
+    }
+    </style>
+{% endblock %}
+{% block content %}
+<section class="output">
+</section>
+<div class="userinput">
+<textarea id="input" rows="5" autofocus
+    placeholder="{% trans %}Type your commands here...{% endtrans %}"></textarea><br/>
+<button id="send">{% trans %}Send{% endtrans %}</button>
+{% trans %}Click "Send" or CTRL-Enter to submit. Markdown
+syntax will work for displayed text.{% endtrans %}
+<a href="/logout">{% trans %}Log out.{% endtrans %}</a>
+</div>
+{% endblock %}
