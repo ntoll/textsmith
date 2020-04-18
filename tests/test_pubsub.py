@@ -28,7 +28,8 @@ def test_init():
         ps = PubSub(mock_subscriber)
         assert ps.connected_users == {}
         assert ps.subscriber == mock_subscriber
-        mock_async.create_task.assert_called_once_with(mock_listen())
+        assert mock_async.create_task.call_count == 1
+        assert mock_listen.call_count == 1
 
 
 @pytest.mark.asyncio
