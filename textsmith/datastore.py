@@ -15,6 +15,14 @@ from asyncio_redis import Pool  # type: ignore
 from asyncio_redis.replies import SetReply  # type: ignore
 
 
+#: The namespace to denote an attribute belongs to the object itself.
+THIS = "this"
+
+
+#: Tag path separator.
+PATH_SEPARATOR = "/"
+
+
 #: Attributes that cannot be updated by the user directly.
 SYSTEM_ATTRIBUTES = {
     "alias",  # a set of names by which the object can be aliased.
@@ -48,6 +56,7 @@ MANDATORY_ATTRIBUTES = {
 SET_ATTRIBUTES = {
     "alias",
     "attributes",
+    "contains",
     "editors",
     "whitelist",
 }
@@ -84,14 +93,17 @@ class DataStore:
         """
         self.redis = redis
 
-    def key_for(self, object_id: int, attribute: str) -> str:
+    def key_for(
+        self, object_id: int, attribute: str, namespace: str = THIS
+    ) -> str:
         """
-        Return a key conforming to the schema for a valid key of the form:
-        object_id:attribute
+        Return a valid key of the form: object_id, namespace, attribute
+        (separated by PATH_SEPARATOR). If no namespace is given, defaults to
+        the THIS token to indicate the attribute is owned by the object itself.
         """
-        return f"{object_id}:{attribute}"
+        return PATH_SEPARATOR.join([str(object_id), namespace, attribute])
 
-    def box(
+    def _box(
         self, value: Union[str, int, float, bool, Dict]
     ) -> Dict[str, Union[str, int, float, bool, Dict]]:
         """
@@ -123,7 +135,9 @@ class DataStore:
                 raise TypeError("Cannot store {typeof} in Redis.")
             return attribute_value
 
-    def unbox(self, obj: Dict[str, str]) -> Union[str, int, float, bool, Dict]:
+    def _unbox(
+        self, obj: Dict[str, str]
+    ) -> Union[str, int, float, bool, Dict]:
         """
         Given a hashmap object representing a value in Redis, unbox it as a
         native Python value (dict [for executable code], str, bool, int or
@@ -198,22 +212,22 @@ class DataStore:
         # Create the object's mandatory attributes.
         transaction = await self.redis.multi()
         await transaction.hmset(
-            self.key_for(object_id, "name"), self.box(name)
+            self.key_for(object_id, "name"), self._box(name)
         )
         await transaction.hmset(
-            self.key_for(object_id, "description"), self.box(description)
+            self.key_for(object_id, "description"), self._box(description)
         )
         await transaction.hmset(
-            self.key_for(object_id, "summary"), self.box(summary)
+            self.key_for(object_id, "summary"), self._box(summary)
         )
         await transaction.hmset(
-            self.key_for(object_id, "static"), self.box(static)
+            self.key_for(object_id, "static"), self._box(static)
         )
         await transaction.hmset(
-            self.key_for(object_id, "typeof"), self.box(typeof.name)
+            self.key_for(object_id, "typeof"), self._box(typeof.name)
         )
         await transaction.hmset(
-            self.key_for(object_id, "owner"), self.box(owner)
+            self.key_for(object_id, "owner"), self._box(owner)
         )
         if alias:
             await transaction.sadd(
@@ -278,63 +292,66 @@ class DataStore:
                 object_attributes[oid][key] = set_result
             else:
                 # Everything else should be an unboxable value.
-                object_attributes[oid][key] = self.unbox(value)
+                object_attributes[oid][key] = self._unbox(value)
         return object_attributes
 
     async def annotate_object(
         self,
         object_id: int,
+        namespace: str,
         **attributes: Dict[str, Union[str, int, float, bool, Set, Dict]],
     ) -> None:
         """
-        Annotate a referenced object with the named attributes.
+        Annotate a referenced object with the namespaced attributes.
         """
         transaction = await self.redis.multi()
         keys = []
         for key, value in attributes.items():
             if key not in SYSTEM_ATTRIBUTES:
-                object_key = self.key_for(object_id, key)
-                await transaction.hmset(object_key, self.box(value))
-                keys.append(key)
+                object_key = self.key_for(object_id, key, namespace)
+                await transaction.hmset(object_key, self._box(value))
+                keys.append(object_key)
         # Log the attribute key in the "attributes" set associated with
         # the object.
         await transaction.sadd(self.key_for(object_id, "attributes"), keys)
         await transaction.exec()
 
-    async def get_annotation(
-        self, object_id: int, name: str
+    async def get_attribute(
+        self, object_id: int, namespace: str, attribute: str
     ) -> Union[str, int, float, bool, Dict]:
         """
-        Given an object ID and name of an attribute, return the associated
+        Given an object ID and namespace of an attribute, return the associated
         value or raise a KeyError to indicate the attribute doesn't exist on
         the object.
         """
-        # Check annotation exists.
-        key = self.key_for(object_id, name)
+        # Check attribute exists.
+        key = self.key_for(object_id, attribute, namespace)
         exists = await self.redis.exists(key)
         if not exists:
-            raise KeyError(f"The attribute {object_id}:{name} does not exist.")
+            raise KeyError(f"The attribute {key} does not exist.")
         result = await self.redis.hgetall_asdict(key)
-        return self.unbox(result)
+        return self._unbox(result)
 
-    async def delete_annotation(self, object_id: int, name: str) -> None:
+    async def delete_attribute(
+        self, object_id: int, namespace: str, attribute: str
+    ) -> None:
         """
-        Given an object ID and name of an attribute, so long as the attribute
-        is NOT a mandatory attribute, delete it. Raise a KeyError if the
-        attribute doesn't already exist. Raise a ValueError if the key is a
+        Given an object ID and namespace of an attribute, so long as the
+        attribute is NOT a mandatory attribute, delete it. Raise a KeyError if
+        the attribute doesn't already exist. Raise a ValueError if the key is a
         system or mandatory attribute.
         """
-        if name in SYSTEM_ATTRIBUTES or name in MANDATORY_ATTRIBUTES:
-            raise ValueError(f"You cannot delete attribute {name}.")
-        key = self.key_for(object_id, name)
+        if attribute in SYSTEM_ATTRIBUTES or attribute in MANDATORY_ATTRIBUTES:
+            raise ValueError(f"You cannot delete attribute {attribute}.")
+        key = self.key_for(object_id, attribute, namespace)
         exists = await self.redis.exists(key)
         if not exists:
-            raise KeyError(f"The attribute {object_id}:{name} does not exist.")
+            raise KeyError(f"The attribute {key} does not exist.")
         transaction = await self.redis.multi()
         await transaction.delete(
             [key,]
         )
-        await transaction.srem(self.key_for(object_id, "attributes"), [name,])
+        await transaction.srem(self.key_for(object_id, "attributes"), [key,])
         await transaction.exec()
 
     async def add_alias(self, object_id: int, alias: str) -> None:
@@ -399,10 +416,7 @@ class DataStore:
         if not exists:
             raise KeyError(f"The object with {object_id} does not exist.")
         attributes = await self.redis.smembers_asset(attribute_key)
-        keys: Set = set()
-        for attribute in attributes:
-            keys.add(self.key_for(object_id, attribute))
-        await self.redis.delete(keys)
+        await self.redis.delete(attributes)
 
     async def move_object(
         self, object_id: int, old_container: int, new_container: int
@@ -413,7 +427,7 @@ class DataStore:
         """
         transaction = await self.redis.multi()
         await transaction.hmset(
-            self.key_for(object_id, "location"), self.box(new_container)
+            self.key_for(object_id, "location"), self._box(new_container)
         )
         await transaction.srem(
             self.key_for(old_container, "contains"), [str(object_id),]
@@ -439,7 +453,7 @@ class DataStore:
         their object's id.
         """
         await self.redis.hmset(
-            self.key_for(object_id, "owner"), self.box(user)
+            self.key_for(object_id, "owner"), self._box(user)
         )
 
     async def set_password_hash(self, user: int, password_hash: str) -> None:
@@ -448,7 +462,7 @@ class DataStore:
         """
         key = self.key_for(user, "password")
         transaction = await self.redis.multi()
-        await transaction.hmset(key, self.box(password_hash))
+        await transaction.hmset(key, self._box(password_hash))
         await transaction.sadd(self.key_for(user, "attributes"), ["password",])
         await transaction.exec()
 
@@ -460,7 +474,7 @@ class DataStore:
         key = self.key_for(user, "seen")
         value = datetime.now().isoformat()
         transaction = await self.redis.multi()
-        await transaction.hmset(key, self.box(value))
+        await transaction.hmset(key, self._box(value))
         await transaction.sadd(self.key_for(user, "attributes"), ["seen",])
         await transaction.exec()
 
@@ -471,7 +485,7 @@ class DataStore:
         """
         key = self.key_for(user, "seen")
         result = await self.redis.hgetall_asdict(key)
-        value = self.unbox(result)
+        value = self._unbox(result)
         return datetime.fromisoformat(value)  # type: ignore
 
     async def set_static(self, object_id: int, is_static: bool) -> None:
@@ -481,7 +495,7 @@ class DataStore:
         """
         key = self.key_for(object_id, "static")
         transaction = await self.redis.multi()
-        await transaction.hmset(key, self.box(is_static))
+        await transaction.hmset(key, self._box(is_static))
         await transaction.sadd(
             self.key_for(object_id, "attributes"), ["static",]
         )

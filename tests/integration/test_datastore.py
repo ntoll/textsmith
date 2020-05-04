@@ -68,32 +68,32 @@ async def test_set_get_object(datastore):  # noqa
         owner,
     }
     assert obj["whitelist"] == {1, 2}
-    foo = await datastore.get_annotation(object_id, "foo")
+    foo = await datastore.get_attribute(object_id, "foo")
     assert foo == "bar"
 
 
 @pytest.mark.asyncio
 async def test_annotate_object(datastore):  # noqa
     """
-    Create, retrieve, update and delete an annotation on an object.
+    Create, retrieve, update and delete an attribute on an object.
     """
     object_id = await make_object(datastore)
-    # Pre-requisit that the annotation doesn't exist.
+    # Pre-requisit that the attribute doesn't exist.
     with pytest.raises(KeyError):
-        await datastore.get_annotation(object_id, "qux")
+        await datastore.get_attribute(object_id, "qux")
     # Create
     await datastore.annotate_object(object_id, qux="wibble")
     # Retrieve
-    qux = await datastore.get_annotation(object_id, "qux")
+    qux = await datastore.get_attribute(object_id, "qux")
     assert qux == "wibble"
     # Update
     await datastore.annotate_object(object_id, qux="bibble")
-    qux = await datastore.get_annotation(object_id, "qux")
+    qux = await datastore.get_attribute(object_id, "qux")
     assert qux == "bibble"
     # Delete
-    await datastore.delete_annotation(object_id, "qux")
+    await datastore.delete_attribute(object_id, "qux")
     with pytest.raises(KeyError):
-        qux = await datastore.get_annotation(object_id, "qux")
+        qux = await datastore.get_attribute(object_id, "qux")
 
 
 @pytest.mark.asyncio

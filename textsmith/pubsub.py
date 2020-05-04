@@ -27,6 +27,8 @@ class PubSub:
         self.connected_users = {}  # type: dict
         # The Redis connection used to subscribe to pub/sub messages.
         self.subscriber = subscriber
+        # A flag to show if new messages are retrievable.
+        self.listening = False
         # Schedule a task to constantly listen for new messages on
         # subscribed-to channels.
         self.listener = asyncio.create_task(self.listen())
@@ -71,13 +73,18 @@ class PubSub:
         then it's put into the message queue for that user, to be sent via the
         websocket connection.
         """
+        self.listening = True
         while True:
-            message = await self.subscriber.next_published()
             try:
+                message = await self.subscriber.next_published()
                 user_id = int(message.channel)
                 logger.msg("Message.", user_id=user_id, value=message.value)
                 if user_id in self.connected_users:
                     self.connected_users[user_id].append(message.value)
+            except StopIteration:
+                logger.msg("Broken subscriber.",)
+                self.listening = False
+                break
             except ValueError:
                 logger.msg(
                     "Bad Message.",
@@ -90,6 +97,8 @@ class PubSub:
         Return the next message in the message queue for the referenced user.
         Otherwise, return an empty string (indicating no messages).
         """
+        if not self.listening:
+            raise ValueError(f"Cannot get messages for user {user_id}.")
         message_queue = self.connected_users.get(user_id)
         if message_queue:
             message = message_queue[0]

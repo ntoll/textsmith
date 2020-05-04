@@ -116,12 +116,11 @@ async def test_listen():
         ps = PubSub(mock_subscriber)
         await ps.subscribe(user_id, str(uuid4()))
         mock_logger.msg.reset_mock()
-        with pytest.raises(Exception):
-            await ps.listen()
+        await ps.listen()
         assert ps.connected_users[user_id] == [
             mock_message.value,
         ]
-        mock_logger.msg.assert_called_once_with(
+        assert mock_logger.msg.call_args_list[0] == mock.call(
             "Message.", user_id=user_id, value=mock_message.value
         )
 
@@ -145,9 +144,8 @@ async def test_listen_bad_message():
     ]
     with asynctest.patch("textsmith.pubsub.logger") as mock_logger:
         ps = PubSub(mock_subscriber)
-        with pytest.raises(Exception):
-            await ps.listen()
-        mock_logger.msg.assert_called_once_with(
+        await ps.listen()
+        assert mock_logger.msg.call_args_list[0] == mock.call(
             "Bad Message.", channel="hello", value=mock_message.value
         )
 
@@ -168,6 +166,7 @@ async def test_get_message_that_exists():
     mock_subscriber = asynctest.MagicMock()
     ps = PubSub(mock_subscriber)
     ps.connected_users[user_id] = message_queue
+    ps.listening = True
     result = await ps.get_message(user_id)
     assert result == "First message"
     assert len(ps.connected_users[user_id]) == 2
@@ -187,6 +186,7 @@ async def test_get_message_no_messages():
     mock_subscriber = asynctest.MagicMock()
     ps = PubSub(mock_subscriber)
     ps.connected_users[user_id] = []
+    ps.listening = True
     result = await ps.get_message(user_id)
     assert result == ""
 
@@ -200,5 +200,21 @@ async def test_get_message_no_such_queue():
     user_id = 1
     mock_subscriber = asynctest.MagicMock()
     ps = PubSub(mock_subscriber)
+    ps.listening = True
     result = await ps.get_message(user_id)
     assert result == ""
+
+
+@pytest.mark.asyncio
+async def test_get_message_not_listening():
+    """
+    Ensure a ValueError is raised if getting messages for a user_id and the
+    PubSub instance is no longer listening (usually an indication that there's
+    a problem).
+    """
+    user_id = 1
+    mock_subscriber = asynctest.MagicMock()
+    ps = PubSub(mock_subscriber)
+    ps.listening = False
+    with pytest.raises(ValueError):
+        await ps.get_message(user_id)
