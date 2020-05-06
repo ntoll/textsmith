@@ -127,8 +127,7 @@ class DataStore:
     async def delete_attribute(self, object_id: int, attribute: str) -> None:
         """
         Given an object ID and owner of an attribute, delete it. Raise a
-        KeyError if the attribute doesn't already exist. Raise a ValueError if
-        the key is a system attribute.
+        KeyError if the attribute doesn't already exist.
         """
         exists = await self.redis.hexists(str(object_id), attribute)
         if not exists:
