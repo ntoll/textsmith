@@ -3,120 +3,60 @@ Run datastore related tests against a test Redis instance.
 """
 import pytest  # type: ignore
 from .fixtures import datastore  # noqa
-from textsmith.datastore import ObjectType
-
-
-async def make_object(datastore):  # noqa
-    name = "test object"
-    description = "This is a test object's description."
-    summary = "This is a test object's summary."
-    alias = set()
-    whitelist = []
-    static = False
-    typeof = ObjectType.OBJECT
-    owner = 666
-    object_id = await datastore.add_object(
-        name, description, summary, alias, static, typeof, owner, whitelist,
-    )
-    return object_id
 
 
 @pytest.mark.asyncio
 async def test_set_get_object(datastore):  # noqa
-    """
-    A new object is successfully created and then retrieved from the REDIS
-    data store.
-    """
-    name = "test object"
-    description = "This is a test object's description."
-    summary = "This is a test object's summary."
-    alias = {
-        "test",
-        "object",
-        "alias",
-        "another name",
-    }
-    whitelist = [
-        1,
-        2,
-    ]
-    static = True
-    typeof = ObjectType.OBJECT
-    owner = 666
+    name = "test"
+    number = 123
+    float_number = 1.23456
+    boolean = False
+    list_stuff = [1, 2.345, "six", True]
     object_id = await datastore.add_object(
-        name,
-        description,
-        summary,
-        alias,
-        static,
-        typeof,
-        owner,
-        whitelist,
-        foo="bar",
+        name=name,
+        number=number,
+        float_number=float_number,
+        boolean=boolean,
+        list_stuff=list_stuff,
     )
     objects = await datastore.get_objects([object_id,])
     obj = objects[object_id]
     assert obj["id"] == object_id
     assert obj["name"] == name
-    assert obj["description"] == description
-    assert obj["summary"] == summary
-    assert obj["alias"] == alias
-    assert obj["typeof"] == ObjectType.OBJECT.name
-    assert obj["static"] == static
-    assert obj["owner"] == owner
-    assert obj["editors"] == {
-        owner,
-    }
-    assert obj["whitelist"] == {1, 2}
-    foo = await datastore.get_attribute(object_id, "foo")
-    assert foo == "bar"
+    assert obj["number"] == number
+    assert obj["float_number"] == float_number
+    assert obj["boolean"] == boolean
+    assert obj["list_stuff"] == list_stuff
 
 
 @pytest.mark.asyncio
-async def test_annotate_object(datastore):  # noqa
-    """
-    Create, retrieve, update and delete an attribute on an object.
-    """
-    object_id = await make_object(datastore)
-    # Pre-requisit that the attribute doesn't exist.
+async def test_update_delete_object(datastore):  # noqa
+    object_id = await datastore.add_object(name="test")
+    # Ensure the object is in a default state.
+    objects = await datastore.get_objects([object_id,])
+    obj = objects[object_id]
+    assert obj == {"id": object_id, "name": "test"}
+    # Update the object with a new field.
+    await datastore.annotate_object(object_id, size=42)
+    objects = await datastore.get_objects([object_id,])
+    obj = objects[object_id]
+    assert obj == {"id": object_id, "name": "test", "size": 42}
+    # Update an existing field.
+    await datastore.annotate_object(object_id, size=3.141)
+    objects = await datastore.get_objects([object_id,])
+    obj = objects[object_id]
+    assert obj == {"id": object_id, "name": "test", "size": 3.141}
+    # Get the value of a specific field.
+    size = await datastore.get_attribute(object_id, "size")
+    assert size == 3.141
+    # Getting an unknown attribute results in a KeyError.
     with pytest.raises(KeyError):
-        await datastore.get_attribute(object_id, "qux")
-    # Create
-    await datastore.annotate_object(object_id, qux="wibble")
-    # Retrieve
-    qux = await datastore.get_attribute(object_id, "qux")
-    assert qux == "wibble"
-    # Update
-    await datastore.annotate_object(object_id, qux="bibble")
-    qux = await datastore.get_attribute(object_id, "qux")
-    assert qux == "bibble"
-    # Delete
-    await datastore.delete_attribute(object_id, "qux")
+        await datastore.get_attribute(object_id, "foo")
+    # Delete the attribute.
+    await datastore.delete_attribute(object_id, "size")
+    objects = await datastore.get_objects([object_id,])
+    obj = objects[object_id]
+    assert obj == {"id": object_id, "name": "test"}
+    # Deleting an unknown attribute results in a KeyError.
     with pytest.raises(KeyError):
-        qux = await datastore.get_attribute(object_id, "qux")
-
-
-@pytest.mark.asyncio
-async def test_alias_object(datastore):  # noqa
-    """
-    Add, read and delete aliases for an object.
-    """
-    object_id = await make_object(datastore)
-    objects = await datastore.get_objects([object_id,])
-    obj = objects[object_id]
-    # Pre-requisit, there are no aliases for the object.
-    assert obj["alias"] == set()
-    # Add an alias.
-    await datastore.add_alias(object_id, "test alias")
-    # Check it exists.
-    objects = await datastore.get_objects([object_id,])
-    obj = objects[object_id]
-    assert obj["alias"] == {
-        "test alias",
-    }
-    # Delete it.
-    await datastore.delete_alias(object_id, "test alias")
-    # Check it's no longer there.
-    objects = await datastore.get_objects([object_id,])
-    obj = objects[object_id]
-    assert obj["alias"] == set()
+        await datastore.delete_attribute(object_id, "foo")
