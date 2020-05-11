@@ -41,10 +41,10 @@ mypy:
 	find . \( -name _build -o -name var -o -path ./docs -o -path ./integration \) -type d -prune -o -name '*.py' -print0 | $(XARGS) mypy
 
 test: clean
-	pytest --random-order
+	pytest --random-order --disable-pytest-warnings
 
 coverage: clean
-	pytest --random-order --disable-warnings --cov-config .coveragerc --cov-report term-missing --cov=textsmith tests/
+	pytest --random-order --disable-pytest-warnings --cov-config .coveragerc --cov-report term-missing --cov=textsmith tests/
 
 tidy: clean
 	@echo "\nTidying code with black..."

@@ -53,10 +53,8 @@ async def test_update_delete_object(datastore):  # noqa
     with pytest.raises(KeyError):
         await datastore.get_attribute(object_id, "foo")
     # Delete the attribute.
-    await datastore.delete_attribute(object_id, "size")
+    assert 1 == await datastore.delete_attributes(object_id, ["size",])
     objects = await datastore.get_objects([object_id,])
     obj = objects[object_id]
     assert obj == {"id": object_id, "name": "test"}
-    # Deleting an unknown attribute results in a KeyError.
-    with pytest.raises(KeyError):
-        await datastore.delete_attribute(object_id, "foo")
+    assert 0 == await datastore.delete_attributes(object_id, ["foo",])

@@ -6,6 +6,7 @@ Copyright (C) 2019 Nicholas H.Tollervey
 import pytest  # type: ignore
 import asynctest  # type: ignore
 from uuid import uuid4
+from collections import deque
 from unittest import mock
 from textsmith.pubsub import PubSub
 
@@ -52,7 +53,7 @@ async def test_subscribe():
         connection_id = str(uuid4())
         await ps.subscribe(user_id, connection_id)
         assert user_id in ps.connected_users
-        assert ps.connected_users[user_id] == []
+        assert ps.connected_users[user_id] == deque()
         ps.subscriber.subscribe.assert_called_once_with(
             [str(user_id),]
         )
@@ -80,10 +81,7 @@ async def test_unsubscribe():
     connection_id = str(uuid4())
     with asynctest.patch("textsmith.pubsub.logger") as mock_logger:
         ps = PubSub(mock_subscriber)
-        message_queue = [
-            "Undelivererd",
-            "Messages",
-        ]
+        message_queue = deque(["Undelivered", "Messages",])
         ps.connected_users[user_id] = message_queue
         await ps.unsubscribe(user_id, connection_id)
         assert user_id not in ps.connected_users
@@ -117,9 +115,7 @@ async def test_listen():
         await ps.subscribe(user_id, str(uuid4()))
         mock_logger.msg.reset_mock()
         await ps.listen()
-        assert ps.connected_users[user_id] == [
-            mock_message.value,
-        ]
+        assert ps.connected_users[user_id] == deque([mock_message.value,])
         assert mock_logger.msg.call_args_list[0] == mock.call(
             "Message.", user_id=user_id, value=mock_message.value
         )
@@ -158,11 +154,9 @@ async def test_get_message_that_exists():
     message is removed from the head of the queue).
     """
     user_id = 1
-    message_queue = [
-        "First message",
-        "Second message",
-        "Third message",
-    ]
+    message_queue = deque(
+        ["First message", "Second message", "Third message",]
+    )
     mock_subscriber = asynctest.MagicMock()
     ps = PubSub(mock_subscriber)
     ps.connected_users[user_id] = message_queue
@@ -170,10 +164,9 @@ async def test_get_message_that_exists():
     result = await ps.get_message(user_id)
     assert result == "First message"
     assert len(ps.connected_users[user_id]) == 2
-    assert ps.connected_users[user_id] == [
-        "Second message",
-        "Third message",
-    ]
+    assert ps.connected_users[user_id] == deque(
+        ["Second message", "Third message",]
+    )
 
 
 @pytest.mark.asyncio

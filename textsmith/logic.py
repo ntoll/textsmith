@@ -7,22 +7,18 @@ Copyright (C) 2019 Nicholas H.Tollervey.
 
 class Logic:
     """
-    Gathers together methods which implement game logic. Uses the dependency
-    injection pattern.
+    Gathers together methods which implement application logic. Uses the
+    dependency injection pattern.
     """
 
-    def __init__(self, models, datastore):
+    def __init__(self, datastore):
         """
-        The models object contains methods for creating data structures that
-        represent in-game objects.
-
         The datastore object contains methods for getting, setting and
         searching the permenant data store.
         """
-        self.models = models
         self.datastore = datastore
 
-    async def verify_password(self, username, password):
+    async def verify_password(self, email, password):
         """
         Given a username and password, return a boolean to indicate if the
         combination is valid.
@@ -35,16 +31,16 @@ class Logic:
         """
         pass
 
-    async def check_username(self, username):
+    async def check_email(self, email):
         """
         Return a boolean indication if the username is both valid and not
         already taken.
         """
         pass
 
-    async def create_user(self, username, password, email):
+    async def create_user(self, email, password):
         """
-        Create a user with the referenced username, password and email address.
-        Email a confirmation link with instructions to the new user.
+        Create a user with the referenced email and password. Email a
+        confirmation link with instructions to the new user.
         """
         pass

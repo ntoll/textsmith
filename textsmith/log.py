@@ -1,7 +1,7 @@
 """
 Configure structured logging.
 
-Copyright (C) 2019 Nicholas H.Tollervey.
+Copyright (C) 2020 Nicholas H.Tollervey.
 """
 import structlog  # type: ignore
 import platform

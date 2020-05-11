@@ -28,7 +28,6 @@ from flask_babel import gettext as _  # type: ignore
 from flask_seasurf import SeaSurf  # type: ignore
 from functools import wraps
 from textsmith.pubsub import PubSub
-from textsmith.models import Models
 from textsmith.datastore import DataStore
 from textsmith.logic import Logic
 from textsmith.parser import Parser
@@ -86,8 +85,7 @@ async def on_start(app: Quart = app) -> None:
         subscriber = await redis.start_subscribe()
         # Assemble objects and inject into the global app scope.
         datastore = DataStore(redis)
-        models = Models()
-        logic = Logic(models, datastore)
+        logic = Logic(datastore)
         pubsub = PubSub(subscriber)
         app.pubsub = pubsub  # type: ignore
         app.parser = Parser(logic)  # type: ignore
