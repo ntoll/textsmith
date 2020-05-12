@@ -1,25 +1,15 @@
 {% extends 'base.html' %}
 {% block content %}
 <section>
-    <p>{% trans %}Fill in the form below to sign up. We'll email you further
-    instructions.{% endtrans %}</p>
+    <p>{% trans %}Please read our <a href="/conduct">code of conduct</a> and
+    then fill in the form below to sign up.{% endtrans %}</p>
     <form action="{{ url_for('signup') }}" method="post">
-        {% if error.username %}
-        <p class="error">{{ error.username }}</p>
-        {% endif %}
-        <p><label for="username">{% trans %}Username{% endtrans %}</label><br/>
-        <input type="text" name="username" autofocus></p>
-        {% if error.password %}
-        <p class="error">{{ error.password }}</p>
-        {% endif %}
-        <p><label for="password">{% trans %}Password{% endtrans %}</label><br/>
-        <input type="password" name="password"></p>
-        <p><label for="confirm_password">{% trans %}Confirm Password{% endtrans %}</label><br/>
-        <input type="password" name="confirm_password"></p>
-        <p><label for="email">{% trans %}Email{% endtrans %}</label><br/>
-        <input type="email" name="email"></p>
+        {{ form.csrf_token }}
+        <p>{{ form.email.label }}:<br/>{{ form.email }}</p>
+        <p>{{ form.password1.label }}:<br/>{{ form.password1}}</p>
+        <p>{{ form.password2.label }}:<br/>{{ form.password2}}</p>
+        <p>{{ form.accept.label }}: {{ form.accept }}</p>
         <p><input type="submit" value="{% trans %}Submit{% endtrans %}"></p>
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     </form>
 </section>
 {% endblock %}

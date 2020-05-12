@@ -10,6 +10,7 @@ import structlog  # type: ignore
 import quart.flask_patch  # type: ignore # noqa
 import uuid
 import asyncio_redis  # type: ignore
+import textsmith.log  # noqa
 from logging import getLogger
 from quart import (
     Quart,
@@ -25,7 +26,10 @@ from quart import (
 from quart.logging import default_handler
 from flask_babel import Babel  # type: ignore
 from flask_babel import gettext as _  # type: ignore
-from flask_seasurf import SeaSurf  # type: ignore
+from flask_wtf import FlaskForm  # type: ignore
+from wtforms import validators  # type: ignore
+from wtforms.fields import PasswordField, BooleanField  # type: ignore
+from wtforms.fields.html5 import EmailField  # type: ignore
 from functools import wraps
 from textsmith.pubsub import PubSub
 from textsmith.datastore import DataStore
@@ -54,8 +58,55 @@ app.config.update(
 )
 # i18n support.
 babel = Babel(app)
-# CSRF mitigation.
-csrf = SeaSurf(app)
+
+
+# ---------- WEB FORM DEFINITIONS
+
+
+class SignUp(FlaskForm):
+    """
+    Gather basic information about a new user.
+    """
+
+    email = EmailField(
+        _("Email address"),
+        [
+            validators.InputRequired(),
+            validators.Email(message=_("Not a valid email address.")),
+        ],
+        render_kw={"autofocus": True},
+    )
+    password1 = PasswordField(
+        _("Password"),
+        [
+            validators.InputRequired(),
+            validators.EqualTo(
+                "password2", message=_("Passwords must match.")
+            ),
+        ],
+    )
+    password2 = PasswordField(
+        _("Confirm Password"), [validators.InputRequired()]
+    )
+    accept = BooleanField(
+        _("I accept the code of conduct"), [validators.InputRequired()]
+    )
+
+
+class LogIn(FlaskForm):
+    """
+    Gather required information to identify a user.
+    """
+
+    email = EmailField(
+        _("Email address"),
+        [
+            validators.InputRequired(),
+            validators.Email(message=_("Not a valid email address.")),
+        ],
+        render_kw={"autofocus": True},
+    )
+    password = PasswordField(_("Password"), [validators.InputRequired()])
 
 
 # ---------- APP EVENTS
@@ -133,6 +184,7 @@ async def home():
         endpoint="/",
         locale=get_locale(),
         headers=dict(request.headers),
+        user_id=session.get("user_id"),
     )
     return await render_template("home.html")
 
@@ -161,8 +213,39 @@ async def help():
         endpoint="/help",
         locale=get_locale(),
         headers=dict(request.headers),
+        user_id=session.get("user_id"),
     )
     return await render_template("help.html")
+
+
+@app.route("/conduct", methods=["GET"])
+async def conduct():
+    """
+    Render the code of conduct page.
+    """
+    logger.msg(
+        "Access",
+        endpoint="/conduct",
+        locale=get_locale(),
+        headers=dict(request.headers),
+        user_id=session.get("user_id"),
+    )
+    return await render_template("conduct.html")
+
+
+@app.route("/privacy", methods=["GET"])
+async def privacy():
+    """
+    Render the privacy statement page.
+    """
+    logger.msg(
+        "Access",
+        endpoint="/privacy",
+        locale=get_locale(),
+        headers=dict(request.headers),
+        user_id=session.get("user_id"),
+    )
+    return await render_template("privacy.html")
 
 
 @app.route("/client", methods=["GET"])
@@ -191,7 +274,7 @@ async def sending(user_id: int, connection_id: str) -> None:
     messages off a message bus for the current user.
     """
     while True:
-        message = current_app.pubsub.get_message(user_id)
+        message = await current_app.pubsub.get_message(user_id)
         if message:
             await websocket.send(message)
             logger.msg(
@@ -200,8 +283,8 @@ async def sending(user_id: int, connection_id: str) -> None:
                 connection_id=connection_id,
                 message=message,
             )
-        else:
-            await asyncio.sleep(0.0001)
+        # else:
+        #    await asyncio.sleep(0.0001)
 
 
 async def receiving(user_id, connection_id):
@@ -308,7 +391,9 @@ async def login():
     Checks the credentials and creates a session.
     """
     error = None
-    if request.method == "POST":
+    form = LogIn()
+    if form.validate_on_submit():
+        """
         form = await request.form
         username = form.get("username")
         password = form.get("password")
@@ -318,7 +403,9 @@ async def login():
             await current_app.logic.set_last_login(user_id)
             return redirect(url_for("client"))
         error = _("Could not log you in. Please try again.")
-    return await render_template("login.html", error=error)
+        """
+        pass
+    return await render_template("login.html", error=error, form=form)
 
 
 @app.route("/logout", methods=["GET"])
@@ -340,8 +427,10 @@ async def signup():
     If the content of the form is good create the user and then send them
     to the thanks page with further instructions.
     """
+    form = SignUp()
     error = {}
-    if request.method == "POST":
+    if form.validate_on_submit():
+        """
         form = await request.form
         username = form.get("username")
         password = form.get("password")
@@ -355,4 +444,6 @@ async def signup():
         if not error:
             await current_app.logic.create_user(username, password, email)
             return redirect(url_for("thanks"))
-    return await render_template("signup.html", error=error)
+        """
+        pass
+    return await render_template("signup.html", error=error, form=form)

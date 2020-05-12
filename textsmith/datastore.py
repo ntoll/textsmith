@@ -50,7 +50,7 @@ class DataStore:
                 redis_error=True,
             )
             raise ex
-        logger.msg(f"Created new object.", object_id=object_id)
+        logger.msg("Created new object.", object_id=object_id)
         # Add attributes to the object.
         if attributes:
             await self.annotate_object(object_id, **attributes)
@@ -88,7 +88,7 @@ class DataStore:
             )
             raise ex
         logger.msg(
-            f"Annotated attributes to object.", object_id=object_id, data=data
+            "Annotated attributes to object.", object_id=object_id, data=data
         )
 
     async def get_objects(

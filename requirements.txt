@@ -3,9 +3,11 @@ asynctest
 black
 colorama
 coverage
+email_validator
 flake8
 flask-babel
-flask-seasurf
+flask-wtf
+jinja2
 Markdown
 mypy
 pycodestyle
