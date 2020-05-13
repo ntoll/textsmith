@@ -5,10 +5,21 @@
         <title>{% trans %}TextSmith ~ create and inhabit interactive textual worlds.{% endtrans %}</title>
         <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/tufte.css') }}">
         <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/latex.css') }}">
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/menu.css') }}">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         {% block head %}{% endblock %}
     </head>
     <body>
+        <header class="header">
+          <input class="menu-btn" type="checkbox" id="menu-btn" />
+          <label class="menu-icon" for="menu-btn"><span class="navicon"></span></label>
+          <ul class="menu">
+            <li><a href="/">Home</a></li>
+            <li><a href="/client">Connect</a></li>
+            <li><a href="/privacy">Privacy</a></li>
+            <li><a href="/conduct">Code of Conduct</a></li>
+          </ul>
+        </header>
         <article>
             <h1>TextSmith</h1>
             <p class="subtitle">{% trans %}Create and inhabit interactive textual worlds.{% endtrans %}</p>
