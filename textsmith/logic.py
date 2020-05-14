@@ -23,24 +23,24 @@ class Logic:
         Given a username and password, return a boolean to indicate if the
         combination is valid.
         """
-        pass
+        return await self.datastore.check_user(email, password)
 
     async def set_last_login(self, user_id):
         """
         Set the last_login timestamp to time.now() for the referenced user.
         """
-        pass
+        await self.datastore.set_last_seen(user_id) 
 
-    async def check_email(self, email):
+    async def check_email(self, email: str) -> bool:
         """
         Return a boolean indication if the username is both valid and not
         already taken.
         """
-        pass
+        return await self.datastore.check_user_exists(email)
 
     async def create_user(self, email, password):
         """
         Create a user with the referenced email and password. Email a
         confirmation link with instructions to the new user.
         """
-        pass
+        return 

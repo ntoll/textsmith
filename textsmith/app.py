@@ -71,7 +71,7 @@ class SignUp(FlaskForm):
     email = EmailField(
         _("Email address"),
         [
-            validators.InputRequired(),
+            validators.InputRequired(message=_("Required.")),
             validators.Email(message=_("Not a valid email address.")),
         ],
         render_kw={"autofocus": True},
@@ -79,17 +79,21 @@ class SignUp(FlaskForm):
     password1 = PasswordField(
         _("Password"),
         [
-            validators.InputRequired(),
+            validators.InputRequired(message=_("Required.")),
             validators.EqualTo(
                 "password2", message=_("Passwords must match.")
+            ),
+            validators.Length(
+                min=8, message=_("Minimum password length is 8.")
             ),
         ],
     )
     password2 = PasswordField(
-        _("Confirm Password"), [validators.InputRequired()]
+        _("Confirm Password"), [validators.InputRequired(_("Required."))]
     )
     accept = BooleanField(
-        _("I accept the code of conduct"), [validators.InputRequired()]
+        _("I accept the code of conduct"),
+        [validators.InputRequired(_("Please agree to our code of conduct."))],
     )
 
 
@@ -106,7 +110,9 @@ class LogIn(FlaskForm):
         ],
         render_kw={"autofocus": True},
     )
-    password = PasswordField(_("Password"), [validators.InputRequired()])
+    password = PasswordField(
+        _("Password"), [validators.InputRequired(_("Required."))]
+    )
 
 
 # ---------- APP EVENTS
@@ -117,6 +123,7 @@ async def on_start(app: Quart = app) -> None:
 
     Log that the application is starting, for status update purposes.
     """
+    logger.msg("Starting application.")
     # The Redis connection pool for interacting with the database.
     host = os.environ.get("TEXTSMITH_REDIS_HOST", "localhost")
     port = int(os.environ.get("TEXTSMITH_REDIS_PORT", 6379))
@@ -287,7 +294,7 @@ async def sending(user_id: int, connection_id: str) -> None:
         #    await asyncio.sleep(0.0001)
 
 
-async def receiving(user_id, connection_id):
+async def receiving(user_id: int, connection_id: str):
     """
     Parse incoming data.
     """
@@ -428,22 +435,22 @@ async def signup():
     to the thanks page with further instructions.
     """
     form = SignUp()
-    error = {}
-    if form.validate_on_submit():
-        """
-        form = await request.form
-        username = form.get("username")
-        password = form.get("password")
-        confirm_password = form.get("confirm_password")
-        email = form.get("email")
-        username_ok = await current_app.logic.check_username(username)
-        if username_ok:
-            error["username"] = _("The username is already taken.")
-        if password != confirm_password:
-            error["password"] = _("The passwords don't match.")
-        if not error:
-            await current_app.logic.create_user(username, password, email)
+    logger.msg("Sign up.")
+    valid = form.validate_on_submit()
+    email_error = _("This email address is already taken.")
+    if form.email.data and not valid:
+        # Ensure the email uniqueness is async checked even if form is bad.
+        email_ok = await current_app.parser.logic.check_email(form.email.data)
+        if not email_ok:
+            form.email.errors.append(email_error)
+    if valid:
+        email = form.email.data
+        email_ok = await current_app.parser.logic.check_email(email)
+        if email_ok:
+            password = form.password1.data
+            await current_app.parser.logic.create_user(email, password)
+            logger.msg("Signed up new user.", email=email)
             return redirect(url_for("thanks"))
-        """
-        pass
-    return await render_template("signup.html", error=error, form=form)
+        else:
+            form.email.errors.append(email_error)
+    return await render_template("signup.html", form=form)
