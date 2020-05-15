@@ -198,14 +198,14 @@ class DataStore:
         )
         return number_changed
 
-    async def user_exists(email: str) -> bool:
+    async def user_exists(self, email: str) -> bool:
         """
         Returns a boolean indication if a user linked to the referenced email
         address exists within the system.
         """
         return False
 
-    async def create_user(email: str, password: str) -> int:
+    async def create_user(self, email: str, password: str) -> int:
         """
         Create metadata for the new user identified by the referenced email
         address and using the referenced password. Return the id of the object
@@ -213,48 +213,48 @@ class DataStore:
         """
         pass
 
-    async def set_user_password(email: str, password: str):
+    async def set_user_password(self, email: str, password: str):
         """
         Given a user identified by the referenced email address, update their
         password to the one provided as an argument to this function.
         """
         pass
 
-    async def check_user(email: str, password: str) - bool:
+    async def check_user(self, email: str, password: str) -> bool:
         """
         Given an email address and password, will check that the credentials
         are valid for signing into the system.
         """
         pass
 
-    async def set_user_active(email: str, active_flag: bool = True):
+    async def set_user_active(self, email: str, active_flag: bool = True):
         """
         Set the "active" flag against the user identified via the email
         address to the value of "active_flag".
         """
         pass
 
-    async def set_last_seen(user_id):
+    async def set_last_seen(self, user_id: int):
         """
         Set the last_seen value for the user identified by the referenced
         object id.
         """
         pass
 
-    async def delete_user(email: str):
+    async def delete_user(self, email: str):
         """
         Delete the user and all the objects owned by the user who is
         identified by the referenced email address.
         """
         pass
 
-    async def set_container(object_id: int, container_id: int):
+    async def set_container(self, object_id: int, container_id: int):
         """
         Ensure the referenced object is set to be contained by the object
         referenced as container_id.
         """
 
-    async def get_contents(object_id: int) -> Dict[
+    async def get_contents(self, object_id: int) -> Dict[
         int,
         Dict[
             str,
@@ -269,7 +269,7 @@ class DataStore:
         """
         pass
 
-    async def get_location(object_id) -> Union([int, None]):
+    async def get_location(self, object_id) -> Union[int, None]:
         """
         Given an object_id, return the id of the object that contains it. If
         the object is not contained within another object, return None.

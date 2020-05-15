@@ -36,7 +36,7 @@ class Logic:
         Return a boolean indication if the username is both valid and not
         already taken.
         """
-        return await self.datastore.check_user_exists(email)
+        return await self.datastore.user_exists(email)
 
     async def create_user(self, email, password):
         """
