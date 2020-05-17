@@ -33,6 +33,10 @@ within parenthesis, if the variable is not set):
 * `TEXTSMITH_DEBUG` (`False`) - the debug flag which results in detailed debug
   information from the web application. This flag is assumed to be `True` if
   any value is set in the environment variable.
+* `RECAPTCHA_PUBLIC_KEY` (`"CHANGEME"`) - the public key for the reCaptcha v2
+  challenge in the signup form.
+* `RECAPTCHA_PRIVATE_KEY` (`"CHANGEME"`) - the private key for the reCaptcha
+  v2 challenge in the signup form.
 
 JSON based structured logging is emitted to stdout. Each log entry is on a
 single line and contains a timestamp and details of the system upon which the
