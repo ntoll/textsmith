@@ -254,7 +254,9 @@ class DataStore:
         referenced as container_id.
         """
 
-    async def get_contents(self, object_id: int) -> Dict[
+    async def get_contents(
+        self, object_id: int
+    ) -> Dict[
         int,
         Dict[
             str,

@@ -26,7 +26,7 @@ from quart import (
 from quart.logging import default_handler
 from flask_babel import Babel  # type: ignore
 from flask_babel import gettext as _  # type: ignore
-from flask_wtf import FlaskForm  # type: ignore
+from flask_wtf import FlaskForm, RecaptchaField  # type: ignore
 from wtforms import validators  # type: ignore
 from wtforms.fields import PasswordField, BooleanField  # type: ignore
 from wtforms.fields.html5 import EmailField  # type: ignore
@@ -58,6 +58,17 @@ app.config.update(
 )
 # i18n support.
 babel = Babel(app)
+# ReCaptcha support.
+app.config.update(
+    {
+        "RECAPTCHA_PUBLIC_KEY": os.environ.get(
+            "RECAPTCHA_PUBLIC_KEY", "CHANGEME"
+        ),
+        "RECAPTCHA_PRIVATE_KEY": os.environ.get(
+            "RECAPTCHA_PRIVATE_KEY", "CHANGEME"
+        ),
+    }
+)
 
 
 # ---------- WEB FORM DEFINITIONS
@@ -76,6 +87,18 @@ class SignUp(FlaskForm):
         ],
         render_kw={"autofocus": True},
     )
+    accept = BooleanField(
+        _("I accept the code of conduct"),
+        [validators.InputRequired(_("Please agree to our code of conduct."))],
+    )
+    recaptcha = RecaptchaField()
+
+
+class SetPassword(FlaskForm):
+    """
+    Allows a user to set and confirm a new password.
+    """
+
     password1 = PasswordField(
         _("Password"),
         [
@@ -90,10 +113,6 @@ class SignUp(FlaskForm):
     )
     password2 = PasswordField(
         _("Confirm Password"), [validators.InputRequired(_("Required."))]
-    )
-    accept = BooleanField(
-        _("I accept the code of conduct"),
-        [validators.InputRequired(_("Please agree to our code of conduct."))],
     )
 
 

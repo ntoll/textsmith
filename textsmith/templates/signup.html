@@ -2,19 +2,19 @@
 {% block content %}
 <section>
     <p>{% trans %}Please read our <a href="/conduct">code of conduct</a> and
-    then fill in the form below to sign up.{% endtrans %}</p>
+    then fill in the form below to sign up. We'll email you instructions for
+    setting your password and logging in for the first time.{% endtrans %}</p>
 
     {% if form.errors %}
     <p><strong>There are problems with the values you entered.</strong></p>
     {% endif %}
     <form action="{{ url_for('signup') }}" method="post">
         {{ form.csrf_token }}
-        <p>{{ form.email.label }}:<br/>{{ form.email }}
-        {% if form.email.errors %}<strong>{% for error in form.email.errors %}{{ error }} {% endfor %}</strong>{% endif %}</p>
-        <p>{{ form.password1.label }}:<br/>{{ form.password1}}
-        {% if form.password1.errors %}<strong>{% for error in form.password1.errors %}{{ error }} {% endfor %}</strong>{% endif %}</p>
-        <p>{{ form.password2.label }}:<br/>{{ form.password2}}</p>
+        <p>{{ form.email.label }}:<br/>{{ form.email }}</p>
+        {% if form.email.errors %}<p><strong>({% for error in form.email.errors %}{{ error }} {% endfor %}</strong>)</p>{% endif %}
         <p>{{ form.accept.label }}: {{ form.accept }}</p>
+        {{ form.recaptcha }}
+        {% if form.recaptcha.errors %}<p>(<strong>{% for error in form.recaptcha.errors %}{{ error }} {% endfor %})</strong></p>{% endif %}
         <p><input type="submit" value="{% trans %}Submit{% endtrans %}"></p>
     </form>
 </section>

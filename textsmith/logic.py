@@ -29,7 +29,7 @@ class Logic:
         """
         Set the last_login timestamp to time.now() for the referenced user.
         """
-        await self.datastore.set_last_seen(user_id) 
+        await self.datastore.set_last_seen(user_id)
 
     async def check_email(self, email: str) -> bool:
         """
@@ -43,4 +43,4 @@ class Logic:
         Create a user with the referenced email and password. Email a
         confirmation link with instructions to the new user.
         """
-        return 
+        return
