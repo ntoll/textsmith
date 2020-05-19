@@ -69,6 +69,17 @@ app.config.update(
         ),
     }
 )
+# Email settings.
+app.config.update(
+    {
+        "EMAIL_ADDRESS": os.environ.get("TEXTSMITH_EMAIL_ADDRESS", "CHANGEME"),
+        "EMAIL_PASSWORD": os.environ.get(
+            "TEXTSMITH_EMAIL_PASSWORD", "CHANGEME"
+        ),
+        "EMAIL_HOST": os.environ.get("TEXTSMITH_EMAIL_HOST", "CHANGEME"),
+        "EMAIL_PORT": int(os.environ.get("TEXTSMITH_EMAIL_PORT", "CHANGEME")),
+    }
+)
 
 
 # ---------- WEB FORM DEFINITIONS
@@ -110,6 +121,7 @@ class SetPassword(FlaskForm):
                 min=8, message=_("Minimum password length is 8.")
             ),
         ],
+        render_kw={"autofocus": True},
     )
     password2 = PasswordField(
         _("Confirm Password"), [validators.InputRequired(_("Required."))]
@@ -162,7 +174,14 @@ async def on_start(app: Quart = app) -> None:
         subscriber = await redis.start_subscribe()
         # Assemble objects and inject into the global app scope.
         datastore = DataStore(redis)
-        logic = Logic(datastore)
+        logic = Logic(
+            datastore,
+            app.config["EMAIL_HOST"],
+            app.config["EMAIL_PORT"],
+            app.config["EMAIL_ADDRESS"],
+            app.config["EMAIL_PASSWORD"],
+        )
+        app.logic = logic  # type: ignore
         pubsub = PubSub(subscriber)
         app.pubsub = pubsub  # type: ignore
         app.parser = Parser(logic)  # type: ignore
@@ -197,6 +216,54 @@ def get_locale():
     # header the browser transmits.  We support de/fr/en in this
     # example.  The best match wins.
     return request.accept_languages.best_match(["de", "fr", "en"])
+
+
+# ----------  ERROR HANDLERS
+@app.errorhandler(401)
+async def unauthorized(e):
+    """
+    Handle 401 Unauthorized.
+    """
+    logger.msg(
+        "401",
+        method=request.method,
+        path=request.path,
+        locale=get_locale(),
+        headers=dict(request.headers),
+    )
+    return await render_template("401.html"), 401
+
+
+@app.errorhandler(404)
+async def page_not_found(e):
+    """
+    Handle 404 Not Found.
+    """
+    logger.msg(
+        "404",
+        method=request.method,
+        path=request.path,
+        locale=get_locale(),
+        headers=dict(request.headers),
+        user_id=session.get("user_id"),
+    )
+    return await render_template("404.html"), 404
+
+
+@app.errorhandler(500)
+async def internal_server_error(e):
+    """
+    Handle 500 Internal Server Error.
+    """
+    logger.msg(
+        "500",
+        method=request.method,
+        path=request.path,
+        locale=get_locale(),
+        headers=dict(request.headers),
+        user_id=session.get("user_id"),
+    )
+    return await render_template("500.html"), 500
 
 
 # ----------  STATIC ENDPOINTS
@@ -454,22 +521,47 @@ async def signup():
     to the thanks page with further instructions.
     """
     form = SignUp()
-    logger.msg("Sign up.")
+    logger.msg(
+        "Sign up.",
+        endpoint="/signup",
+        locale=get_locale(),
+        headers=dict(request.headers),
+        user_id=session.get("user_id"),
+        method=request.method,
+    )
     valid = form.validate_on_submit()
     email_error = _("This email address is already taken.")
     if form.email.data and not valid:
         # Ensure the email uniqueness is async checked even if form is bad.
-        email_ok = await current_app.parser.logic.check_email(form.email.data)
-        if not email_ok:
+        email_exists = await current_app.logic.check_email(form.email.data)
+        if email_exists:
             form.email.errors.append(email_error)
     if valid:
         email = form.email.data
-        email_ok = await current_app.parser.logic.check_email(email)
-        if email_ok:
-            password = form.password1.data
-            await current_app.parser.logic.create_user(email, password)
+        email_exists = await current_app.logic.check_email(email)
+        if not email_exists:
+            await current_app.logic.create_user(email)
             logger.msg("Signed up new user.", email=email)
             return redirect(url_for("thanks"))
         else:
             form.email.errors.append(email_error)
     return await render_template("signup.html", form=form)
+
+
+@app.route("/confirm/<uuid:confirmation_token>", methods=["GET", "POST"])
+async def confirm(confirmation_token):
+    """
+    Given a valid confirmation token (uuid) created when the user signed up,
+    gather password information for the user or raise a 404.
+    """
+    valid_token = await current_app.logic.check_token(confirmation_token)
+    if not valid_token:
+        abort(404)
+    form = SetPassword()
+    if form.validate_on_submit():
+        password = form.password1.data
+        await current_app.logic.confirm_user(confirmation_token, password)
+        return redirect(url_for("welcome"))
+    return await render_template(
+        "confirm_user.html", form=form, confirmation_token=confirmation_token
+    )

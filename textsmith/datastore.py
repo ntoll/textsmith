@@ -6,6 +6,9 @@ strings of JSON.
 
 Copyright (C) 2020 Nicholas H.Tollervey.
 """
+import os
+import binascii
+import hashlib
 import json
 import structlog  # type: ignore
 from typing import Sequence, Dict, Union
@@ -26,6 +29,48 @@ class DataStore:
         The redis object is a connection pool to a Redis instance.
         """
         self.redis = redis
+
+    def user_key(self, email: str) -> str:
+        """
+        Given a user's unique email address, return the key to use to
+        reference the user in the Redis database.
+        """
+        return f"user:{email}"
+
+    def token_key(self, token: str) -> str:
+        """
+        Given a token value, return the key to use to retrieve the associated
+        user's details.
+        """
+        return f"token:{token}"
+
+    def hash_password(self, password: str):
+        """
+        Hash a password for safe storage.
+        """
+        salt = hashlib.sha256(os.urandom(60)).hexdigest().encode("ascii")
+        pwdhash = hashlib.pbkdf2_hmac(
+            "sha512", password.encode("utf-8"), salt, 100000
+        )
+        pwdhash = binascii.hexlify(pwdhash)
+        return (salt + pwdhash).decode("ascii")
+
+    def verify_password(
+        self, stored_password: str, provided_password: str
+    ) -> bool:
+        """
+        Verify a stored password hash against a plaintext provided password.
+        """
+        salt = stored_password[:64]
+        stored_password = stored_password[64:]
+        hashed = hashlib.pbkdf2_hmac(
+            "sha512",
+            provided_password.encode("utf-8"),
+            salt.encode("ascii"),
+            100000,
+        )
+        pwdhash = binascii.hexlify(hashed).decode("ascii")
+        return pwdhash == stored_password
 
     async def add_object(
         self,
@@ -203,36 +248,180 @@ class DataStore:
         Returns a boolean indication if a user linked to the referenced email
         address exists within the system.
         """
-        return False
+        try:
+            result = await self.redis.exists(self.user_key(email))
+        except (Error, ErrorReply) as ex:  # pragma: no cover
+            logger.msg(
+                "Error checking if user exists.",
+                user_email=email,
+                exc_info=ex,
+                redis_error=True,
+            )
+            raise ex
+        return result
 
-    async def create_user(self, email: str, password: str) -> int:
+    async def create_user(self, email: str, confirmation_token: str) -> int:
         """
         Create metadata for the new user identified by the referenced email
         address and using the referenced password. Return the id of the object
         in the database associated with this user.
         """
-        pass
+        try:
+            # Make an object in the world.
+            object_id = await self.add_object()
+            # Generate some simple metadata about the new user.
+            user = {
+                "email": email,
+                "active": False,
+                "object_id": object_id,
+            }
+            # JSON-ify for Redis.
+            data = {
+                attribute: json.dumps(value)
+                for attribute, value in user.items()
+            }
+            transaction = await self.redis.multi()
+            # Set the meta-data.
+            await transaction.hmset(self.user_key(email), data)
+            # Set the link from the emailed token to the user for password
+            # creation and account confirmation.
+            await transaction.set(self.token_key(confirmation_token), email)
+            await transaction.exec()
+        except (Error, ErrorReply) as ex:  # pragma: no cover
+            logger.msg(
+                "Error creating user.",
+                user_email=email,
+                confirmation_token=confirmation_token,
+                exc_info=ex,
+                redis_error=True,
+            )
+            raise ex
+        logger.msg("Created user.", user=data)
+        # Return the object created to represent the user in the world.
+        return object_id
 
-    async def set_user_password(self, email: str, password: str):
+    async def token_to_email(
+        self, confirmation_token: str
+    ) -> Union[str, None]:
+        """
+        Given a confirmation token, will return the related email address. If
+        no email or token exists, returns None.
+        """
+        try:
+            email = await self.redis.get(self.token_key(confirmation_token))
+        except (Error, ErrorReply) as ex:  # pragma: no cover
+            logger.msg(
+                "Error getting email from token.",
+                confirmation_token=confirmation_token,
+                exc_info=ex,
+                redis_error=True,
+            )
+            raise ex
+        if email:
+            return email
+        return None
+
+    async def set_user_password(self, email: str, password: str) -> None:
         """
         Given a user identified by the referenced email address, update their
         password to the one provided as an argument to this function.
         """
-        pass
+        hashed_password = self.hash_password(password)
+        # JSON-ify for Redis.
+        data = {"password": json.dumps(hashed_password)}
+        try:
+            await self.redis.hmset(self.user_key(email), data)
+        except (Error, ErrorReply) as ex:  # pragma: no cover
+            logger.msg(
+                "Error setting password.",
+                user_email=email,
+                exc_info=ex,
+                redis_error=True,
+            )
+            raise ex
+        logger.msg("Set password.", user_email=email)
 
-    async def check_user(self, email: str, password: str) -> bool:
+    async def confirm_user(self, confirmation_token: str, password: str):
+        """
+        Given a confirmation token sets the referenced password against the
+        email address related to the token. This is the final step in user
+        confirmation.
+        """
+        email = await self.token_to_email(confirmation_token)
+        if email:
+            await self.set_user_password(email, password)
+            await self.set_user_active(email, True)
+        else:
+            msg = "Unable to confirm user with token."
+            logger.msg(
+                msg, confirmation_token=confirmation_token,
+            )
+            raise ValueError(msg)
+        try:
+            await self.redis.delete([self.token_key(confirmation_token)])
+        except (Error, ErrorReply) as ex:  # pragma: no cover
+            logger.msg(
+                "Error deleting token.",
+                user_email=email,
+                confirmation_token=confirmation_token,
+                exc_info=ex,
+                redis_error=True,
+            )
+            raise ex
+        logger.msg("User confirmed email address.", user_email=email)
+        return email
+
+    async def verify_user(self, email: str, password: str) -> bool:
         """
         Given an email address and password, will check that the credentials
         are valid for signing into the system.
         """
-        pass
+        key = self.user_key(email)
+        try:
+            # Check password exists.
+            exists = await self.redis.hexists(key, "password")
+            if not exists:
+                return False
+            # Check the user is active.
+            flag = await self.redis.hget(key, "active")
+            is_active = json.loads(flag)
+            if not is_active:
+                # Inactive users can never log in.
+                return False
+            # Grab the password from the database.
+            stored_password = await self.redis.hget(key, "password")
+            stored_password = json.loads(stored_password)
+        except (Error, ErrorReply) as ex:  # pragma: no cover
+            logger.msg(
+                "Error getting stored password.",
+                user_email=email,
+                exc_info=ex,
+                redis_error=True,
+            )
+            raise ex
+        return self.verify_password(stored_password, password)
 
     async def set_user_active(self, email: str, active_flag: bool = True):
         """
         Set the "active" flag against the user identified via the email
         address to the value of "active_flag".
         """
-        pass
+        # JSON-ify for Redis.
+        data = {"active": json.dumps(active_flag)}
+        try:
+            await self.redis.hmset(self.user_key(email), data)
+        except (Error, ErrorReply) as ex:  # pragma: no cover
+            logger.msg(
+                "Error setting user active.",
+                user_email=email,
+                new_active_flag_value=active_flag,
+                exc_info=ex,
+                redis_error=True,
+            )
+            raise ex
+        logger.msg(
+            "Set user active flag.", user_email=email, active=active_flag
+        )
 
     async def set_last_seen(self, user_id: int):
         """

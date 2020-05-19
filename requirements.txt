@@ -1,3 +1,4 @@
+aiosmtplib
 asyncio_redis
 asynctest
 black

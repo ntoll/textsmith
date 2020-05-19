@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}{% trans %}TextSmith ~ PAGE NOT FOUND{% endtrans %}{% endblock %}
+{% block content %}
+<h2>{% trans %}Page Not Found{% endtrans %}</h2>
+
+<p>{% trans %}The web page you seek{% endtrans %}<br/>
+{% trans %}Cannot be located, but{% endtrans %}<br/>
+{% trans %}Countless more exist...{% endtrans %}</p>
+
+<p>{% trans %}Are you sure you've got the right web address..? If in doubt,{% endtrans %}
+<a href="{{ url_for('home') }}">{% trans %}return home{% endtrans %}</a>.</p>
+
+{% endblock %}

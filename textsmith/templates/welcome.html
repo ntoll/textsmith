@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<section>
+    <h2>{% trans %}Welcome{% endtrans %}</h2>
+    <p>{% trans %}You have successfully registered.{% endtrans %}</p>
+    <p>{% trans %}Enter your username and password to connect.{% endtrans %}</p>
+    {% if error %}
+    <p style="color: red;">{{ error }}</p>
+    {% endif %}
+    <form action="{{ url_for('login') }}" method="post">
+        {{ form.csrf_token }}
+        <p>{{ form.email.label }}:<br/>{{ form.email }}</p>
+        <p>{{ form.password.label }}:<br/>{{ form.password }}</p>
+        <p><input type="submit" value="{% trans %}Submit{% endtrans %}"></p>
+    </form>
+</section>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}{% trans %}TextSmith ~ INTERNAL SERVER ERROR{% endtrans %}{% endblock %}
+{% block content %}
+<h2>{% trans %}Internal Server Error{% endtrans %}</h2>
+
+<p>{% trans %}Something went wrong, and it's our fault.{% endtrans %}</p>
+<p>{% trans %}We're really sorry about that, but this incident has been logged and will be investigated.{% endtrans %}</p>
+<p>{% trans %}Perhaps try again later?{% endtrans %}</p>
+{% endblock %}

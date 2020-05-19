@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}{% trans %}TextSmith ~ UNAUTHORIZED{% endtrans %}{% endblock %}
+{% block content %}
+<h2>{% trans %}Unauthorized{% endtrans %}</h2>
+
+<p>{% trans %}Try one of the following:{% endtrans %}</p>
+<ul>
+  <li><a href="{{ url_for('signup') }}">{% trans %}Sign up.{% endtrans %}</a></li>
+  <li><a href="{{ url_for('login') }}">{% trans %}Log in.{% endtrans %}</a></li>
+</ul>
+{% endblock %}
