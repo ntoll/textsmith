@@ -44,7 +44,7 @@ class DataStore:
         """
         return f"token:{token}"
 
-    def hash_password(self, password: str):
+    def hash_password(self, password: str) -> str:
         """
         Hash a password for safe storage.
         """
@@ -321,16 +321,25 @@ class DataStore:
             return email
         return None
 
-    async def set_user_password(self, email: str, password: str) -> None:
+    async def set_user_password(self, email: str, password: str) -> bool:
         """
         Given a user identified by the referenced email address, update their
         password to the one provided as an argument to this function.
+
+        Passwords cannot be set for non-existent users, nor inactive users.
         """
         hashed_password = self.hash_password(password)
         # JSON-ify for Redis.
         data = {"password": json.dumps(hashed_password)}
         try:
-            await self.redis.hmset(self.user_key(email), data)
+            key = self.user_key(email)
+            flag = await self.redis.hget(key, "active")
+            if flag:  # The user exists.
+                is_active = json.loads(flag)
+                if is_active:  # The user is active.
+                    await self.redis.hmset(key, data)
+                    logger.msg("Set password.", user_email=email)
+                    return True
         except (Error, ErrorReply) as ex:  # pragma: no cover
             logger.msg(
                 "Error setting password.",
@@ -339,9 +348,11 @@ class DataStore:
                 redis_error=True,
             )
             raise ex
-        logger.msg("Set password.", user_email=email)
+        return False
 
-    async def confirm_user(self, confirmation_token: str, password: str):
+    async def confirm_user(
+        self, confirmation_token: str, password: str
+    ) -> str:
         """
         Given a confirmation token sets the referenced password against the
         email address related to the token. This is the final step in user
@@ -349,8 +360,8 @@ class DataStore:
         """
         email = await self.token_to_email(confirmation_token)
         if email:
-            await self.set_user_password(email, password)
             await self.set_user_active(email, True)
+            await self.set_user_password(email, password)
         else:
             msg = "Unable to confirm user with token."
             logger.msg(
@@ -376,21 +387,15 @@ class DataStore:
         Given an email address and password, will check that the credentials
         are valid for signing into the system.
         """
-        key = self.user_key(email)
         try:
-            # Check password exists.
-            exists = await self.redis.hexists(key, "password")
-            if not exists:
+            result = await self.redis.hgetall_asdict(self.user_key(email))
+            if not result:
                 return False
+            user_data = {key: json.loads(val) for key, val in result.items()}
             # Check the user is active.
-            flag = await self.redis.hget(key, "active")
-            is_active = json.loads(flag)
-            if not is_active:
+            if not user_data.get("active", False):
                 # Inactive users can never log in.
                 return False
-            # Grab the password from the database.
-            stored_password = await self.redis.hget(key, "password")
-            stored_password = json.loads(stored_password)
         except (Error, ErrorReply) as ex:  # pragma: no cover
             logger.msg(
                 "Error getting stored password.",
@@ -399,9 +404,11 @@ class DataStore:
                 redis_error=True,
             )
             raise ex
-        return self.verify_password(stored_password, password)
+        return self.verify_password(user_data["password"], password)
 
-    async def set_user_active(self, email: str, active_flag: bool = True):
+    async def set_user_active(
+        self, email: str, active_flag: bool = True
+    ) -> None:
         """
         Set the "active" flag against the user identified via the email
         address to the value of "active_flag".
@@ -423,25 +430,28 @@ class DataStore:
             "Set user active flag.", user_email=email, active=active_flag
         )
 
-    async def set_last_seen(self, user_id: int):
+    async def set_last_seen(self, user_id: int) -> None:
         """
         Set the last_seen value for the user identified by the referenced
         object id.
         """
         pass
 
-    async def delete_user(self, email: str):
+    async def delete_user(self, email: str) -> bool:
         """
-        Delete the user and all the objects owned by the user who is
-        identified by the referenced email address.
+        Soft delete the user whilst keeping all the objects owned by the user
+        (who is identified by the referenced email address). This involves
+        setting the user as inactive (so they can't log in) and ensuring they
+        are not contained within another object.
         """
-        pass
+        return False
 
-    async def set_container(self, object_id: int, container_id: int):
+    async def set_container(self, object_id: int, container_id: int) -> bool:
         """
         Ensure the referenced object is set to be contained by the object
         referenced as container_id.
         """
+        return False
 
     async def get_contents(
         self, object_id: int

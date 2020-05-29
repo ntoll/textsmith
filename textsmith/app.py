@@ -341,6 +341,21 @@ async def privacy():
     return await render_template("privacy.html")
 
 
+@app.route("/welcome", methods=["GET"])
+async def welcome():
+    """
+    Render the welcome page when users have completed sign-up.
+    """
+    logger.msg(
+        "Access",
+        endpoint="/welcome",
+        locale=get_locale(),
+        headers=dict(request.headers),
+        user_id=session.get("user_id"),
+    )
+    return await render_template("welcome.html")
+
+
 @app.route("/client", methods=["GET"])
 async def client():
     """

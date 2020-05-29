@@ -35,7 +35,7 @@ else
 endif
 
 flake8:
-	flake8 --ignore=E231 --exclude=docs
+	flake8 --ignore=E231,W503 --exclude=docs
 
 mypy:
 	find . \( -name _build -o -name var -o -path ./docs -o -path ./integration \) -type d -prune -o -name '*.py' -print0 | $(XARGS) mypy
