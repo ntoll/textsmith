@@ -2,6 +2,7 @@
 Run datastore related tests against a test Redis instance.
 """
 import pytest  # type: ignore
+import datetime
 from .fixtures import datastore  # noqa
 from uuid import uuid4
 
@@ -121,3 +122,22 @@ async def test_user_sign_up_journey_in_data(datastore):  # noqa
     await datastore.set_user_active(email, True)
     result = await datastore.verify_user(email, password)
     assert result is True
+
+
+@pytest.mark.asyncio
+async def test_set_get_last_seen(datastore):  # noqa
+    """
+    It is possible to set / get a user's last seen timestamp.
+    """
+    confirmation_token = str(uuid4())
+    email = "foo@bar.com"
+    object_id = await datastore.create_user(email, confirmation_token)
+    # Set the last seen value.
+    await datastore.set_last_seen(email)
+    # Get the value just set.
+    last_seen = await datastore.get_last_seen(object_id)
+    # ...which is a datetime object.
+    assert isinstance(last_seen, datetime.datetime)
+    # None existent user objects result in None.
+    last_seen = await datastore.get_last_seen(-1)
+    assert last_seen is None

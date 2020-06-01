@@ -11,6 +11,7 @@ import binascii
 import hashlib
 import json
 import structlog  # type: ignore
+from datetime import datetime
 from typing import Sequence, Dict, Union
 from asyncio_redis import Pool  # type: ignore
 from asyncio_redis.exceptions import Error, ErrorReply  # type: ignore
@@ -43,6 +44,13 @@ class DataStore:
         user's details.
         """
         return f"token:{token}"
+
+    def last_seen_key(self, user_id: int) -> str:
+        """
+        Given a user id, return the key to use to set the timestamp at which
+        the user was last seen on the server.
+        """
+        return f"lastseen:{user_id}"
 
     def hash_password(self, password: str) -> str:
         """
@@ -430,26 +438,77 @@ class DataStore:
             "Set user active flag.", user_email=email, active=active_flag
         )
 
-    async def set_last_seen(self, user_id: int) -> None:
+    async def set_last_seen(self, email: str) -> None:
         """
         Set the last_seen value for the user identified by the referenced
         object id.
         """
-        pass
+        try:
+            result = await self.redis.hgetall_asdict(self.user_key(email))
+            if not result:
+                return
+            user_data = {key: json.loads(val) for key, val in result.items()}
+            key = self.last_seen_key(user_data["object_id"])
+            now = datetime.now().isoformat()
+            await self.redis.set(key, now)
+        except (Error, ErrorReply) as ex:  # pragma: no cover
+            logger.msg(
+                "Error setting last seen.",
+                user_email=email,
+                exc_info=ex,
+                redis_error=True,
+            )
+            raise ex
+        logger.msg("Set last seen.", user_email=email, last_seen=now)
 
-    async def delete_user(self, email: str) -> bool:
+    async def get_last_seen(self, user_id: int) -> Union[datetime, None]:
+        """
+        Returns a datetime object representing the moment at which the user,
+        whose in-game object is referenced in the arguments, was last seen.
+        """
+        try:
+            key = self.last_seen_key(user_id)
+            val = await self.redis.get(key)
+            if val:  # The user was last seen at a certain time.
+                return datetime.fromisoformat(val)
+        except (Error, ErrorReply) as ex:  # pragma: no cover
+            logger.msg(
+                "Error getting last seen.",
+                user_id=user_id,
+                exc_info=ex,
+                redis_error=True,
+            )
+            raise ex
+        return None
+
+    async def delete_user(self, email: str) -> None:
         """
         Soft delete the user whilst keeping all the objects owned by the user
         (who is identified by the referenced email address). This involves
         setting the user as inactive (so they can't log in) and ensuring they
         are not contained within another object.
         """
-        return False
+        await self.set_user_active(email, False)
+        try:
+            result = await self.redis.hgetall_asdict(self.user_key(email))
+            if not result:
+                return
+            user_data = {key: json.loads(val) for key, val in result.items()}
+        except (Error, ErrorReply) as ex:  # pragma: no cover
+            logger.msg(
+                "Error deleting user.",
+                user_email=email,
+                exc_info=ex,
+                redis_error=True,
+            )
+            raise ex
+        await self.set_container(user_data["object_id"], -1)
 
     async def set_container(self, object_id: int, container_id: int) -> bool:
         """
         Ensure the referenced object is set to be contained by the object
-        referenced as container_id.
+        referenced as container_id. If the container_id < 0, then the
+        referenced object_id is not contained anywhere.
         """
         return False
 

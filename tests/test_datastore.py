@@ -46,6 +46,14 @@ def test_token_key(datastore):
     )
 
 
+def test_last_seen_key(datastore):
+    """
+    The key for storing a user's last-seen timestamp matches a certain pattern:
+    "lastseen:123".
+    """
+    assert datastore.last_seen_key(123) == "lastseen:123"
+
+
 def test_hash_and_check_password(datastore):
     """
     Ensure hashing and checking of passwords works.
