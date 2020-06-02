@@ -52,6 +52,22 @@ class DataStore:
         """
         return f"lastseen:{user_id}"
 
+    def inventory_key(self, object_id: int) -> str:
+        """
+        Given an object id, return the key to use to record the objects
+        contained within the referenced object. This is recording "what do I
+        contain?"
+        """
+        return f"inventory:{object_id}"
+
+    def location_key(self, object_id: int) -> str:
+        """
+        Given an object id, return the key used to record the id of the object
+        that contains the referenced object. This is recording "who contains
+        me?"
+        """
+        return f"location:{object_id}"
+
     def hash_password(self, password: str) -> str:
         """
         Hash a password for safe storage.
@@ -141,7 +157,9 @@ class DataStore:
             )
             raise ex
         logger.msg(
-            "Annotated attributes to object.", object_id=object_id, data=data
+            "Annotated attributes to object.",
+            object_id=object_id,
+            data=attributes,
         )
 
     async def get_objects(
@@ -443,13 +461,11 @@ class DataStore:
         Set the last_seen value for the user identified by the referenced
         object id.
         """
+        now = datetime.now().isoformat()
         try:
             result = await self.redis.hgetall_asdict(self.user_key(email))
-            if not result:
-                return
             user_data = {key: json.loads(val) for key, val in result.items()}
             key = self.last_seen_key(user_data["object_id"])
-            now = datetime.now().isoformat()
             await self.redis.set(key, now)
         except (Error, ErrorReply) as ex:  # pragma: no cover
             logger.msg(
@@ -491,9 +507,8 @@ class DataStore:
         await self.set_user_active(email, False)
         try:
             result = await self.redis.hgetall_asdict(self.user_key(email))
-            if not result:
-                return
             user_data = {key: json.loads(val) for key, val in result.items()}
+            await self.set_container(user_data["object_id"], -1)
         except (Error, ErrorReply) as ex:  # pragma: no cover
             logger.msg(
                 "Error deleting user.",
@@ -502,15 +517,50 @@ class DataStore:
                 redis_error=True,
             )
             raise ex
-        await self.set_container(user_data["object_id"], -1)
+        logger.msg("Deleted user.", user_email=email)
 
-    async def set_container(self, object_id: int, container_id: int) -> bool:
+    async def set_container(self, object_id: int, container_id: int) -> None:
         """
         Ensure the referenced object is set to be contained by the object
         referenced as container_id. If the container_id < 0, then the
         referenced object_id is not contained anywhere.
         """
-        return False
+        try:
+            location_key = self.location_key(object_id)
+            id_val = json.dumps(object_id)
+            # Get current container for the referenced object.
+            old_container_id = await self.redis.get(location_key)
+            transaction = await self.redis.multi()
+            # If required, remove object from old container.
+            if old_container_id:
+                await transaction.srem(
+                    self.inventory_key(json.loads(old_container_id)), [id_val,]
+                )
+            if container_id < 0:
+                # The object is not contained.
+                await transaction.delete(
+                    [location_key,]
+                )
+            else:
+                # Add object to new container.
+                await transaction.sadd(
+                    self.inventory_key(container_id), [id_val,]
+                )
+                # Point object to new container.
+                await transaction.set(location_key, json.dumps(container_id))
+            await transaction.exec()
+        except (Error, ErrorReply) as ex:  # pragma: no cover
+            logger.msg(
+                "Error moving object object.",
+                object_id=object_id,
+                container_id=container_id,
+                exc_info=ex,
+                redis_error=True,
+            )
+            raise ex
+        logger.msg(
+            "Moved object.", object_id=object_id, container_id=container_id
+        )
 
     async def get_contents(
         self, object_id: int
@@ -527,11 +577,18 @@ class DataStore:
         Return a dictionary containing all the objects contained within the
         referenced object.
         """
-        pass
+        contents = await self.redis.smembers_asset(
+            self.inventory_key(object_id)
+        )
+        result = await self.get_objects([int(i) for i in contents])
+        return result
 
     async def get_location(self, object_id) -> Union[int, None]:
         """
         Given an object_id, return the id of the object that contains it. If
         the object is not contained within another object, return None.
         """
-        pass
+        result = await self.redis.get(self.location_key(object_id))
+        if result:
+            return json.loads(result)
+        return None

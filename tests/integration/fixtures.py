@@ -30,9 +30,9 @@ async def pool(event_loop):
     pool = await asyncio_redis.Pool.create(
         host="localhost", port=6379, db=1, poolsize=10
     )
-    yield pool
     # Delete all items from database.
     pool.flushdb()
+    yield pool
     pool.close()
 
 
@@ -45,8 +45,8 @@ async def datastore():
     pool = await asyncio_redis.Pool.create(
         host="localhost", port=6379, db=1, poolsize=10
     )
-    ds = DataStore(pool)
-    yield ds
     # Delete all items from database.
     pool.flushdb()
+    ds = DataStore(pool)
+    yield ds
     pool.close()

@@ -8,6 +8,7 @@ import json
 import asyncio
 import asynctest  # type: ignore
 import uuid
+import datetime
 from unittest import mock
 from textsmith.datastore import DataStore
 
@@ -52,6 +53,22 @@ def test_last_seen_key(datastore):
     "lastseen:123".
     """
     assert datastore.last_seen_key(123) == "lastseen:123"
+
+
+def test_inventory_key(datastore):
+    """
+    The key for storing an inventory of objects contained within the referenced
+    object. Should be of the following pattern: "inventory:123".
+    """
+    assert datastore.inventory_key(123) == "inventory:123"
+
+
+def test_location_key(datastore):
+    """
+    The key for recording the container of the referenced object. Should be of
+    the following pattern: "location:123"
+    """
+    assert datastore.location_key(123) == "location:123"
 
 
 def test_hash_and_check_password(datastore):
@@ -406,3 +423,152 @@ async def test_set_user_active(datastore):
     datastore.redis.hmset.assert_called_once_with(
         key, {"active": json.dumps(False)}
     )
+
+
+@pytest.mark.asyncio
+async def test_set_last_seen(datastore):
+    """
+    Set an isoformat timestamp against the referenced user to represent when
+    they last interacted with the system.
+    """
+    email = "foo@bar.com"
+    datastore.redis.hgetall_asdict = asynctest.CoroutineMock(
+        return_value={
+            "password": json.dumps(datastore.hash_password("password123")),
+            "active": json.dumps(True),
+            "object_id": json.dumps(123),
+        }
+    )
+    datastore.redis.set = asynctest.CoroutineMock()
+    mock_datetime = mock.MagicMock()
+    mock_datetime.now().isoformat.return_value = "a date"
+    with mock.patch("textsmith.datastore.datetime", mock_datetime):
+        await datastore.set_last_seen(email)
+    datastore.redis.set.assert_called_once_with(
+        datastore.last_seen_key(123), "a date"
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_last_seen(datastore):
+    """
+    If there's a last-seen value for the referenced user's object, return a
+    datetime representation of it. Otherwise, return None.
+    """
+    val = datetime.datetime.now().isoformat()
+    datastore.redis.get = asynctest.CoroutineMock(return_value=val)
+    expected = datetime.datetime.fromisoformat(val)
+    result = await datastore.get_last_seen(123)
+    assert result == expected
+    datastore.redis.get = asynctest.CoroutineMock(return_value=None)
+    result = await datastore.get_last_seen(123)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_delete_user(datastore):
+    """
+    A deleted user is set as inactive and is not contained within another
+    object.
+    """
+    email = "foo@bar.com"
+    datastore.set_user_active = asynctest.CoroutineMock()
+    datastore.redis.hgetall_asdict = asynctest.CoroutineMock(
+        return_value={
+            "password": json.dumps(datastore.hash_password("password123")),
+            "active": json.dumps(True),
+            "object_id": json.dumps(123),
+        }
+    )
+    datastore.set_container = asynctest.CoroutineMock()
+    await datastore.delete_user(email)
+    datastore.set_user_active.assert_called_once_with(email, False)
+    datastore.set_container.assert_called_once_with(123, -1)
+
+
+@pytest.mark.asyncio
+async def test_set_container(datastore):
+    """
+    The referenced object is moved from its old container to the new container.
+    """
+    datastore.redis.get = asynctest.CoroutineMock(return_value="321")
+    mock_transaction = asynctest.CoroutineMock()
+    mock_transaction.srem = asynctest.CoroutineMock()
+    mock_transaction.sadd = asynctest.CoroutineMock()
+    mock_transaction.set = asynctest.CoroutineMock()
+    mock_transaction.exec = asynctest.CoroutineMock()
+    datastore.redis.multi = asynctest.CoroutineMock(
+        return_value=mock_transaction
+    )
+    object_id = 123
+    container_id = 234
+    await datastore.set_container(object_id, container_id)
+    mock_transaction.srem.assert_called_once_with(
+        datastore.inventory_key(321), [json.dumps(object_id)]
+    )
+    mock_transaction.sadd.assert_called_once_with(
+        datastore.inventory_key(container_id), [json.dumps(object_id)]
+    )
+    mock_transaction.set.assert_called_once_with(
+        datastore.location_key(object_id), json.dumps(container_id)
+    )
+    mock_transaction.exec.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_set_container_limbo(datastore):
+    """
+    The referenced object is moved from its old container to limbo (-1).
+    """
+    datastore.redis.get = asynctest.CoroutineMock(return_value="321")
+    mock_transaction = asynctest.CoroutineMock()
+    mock_transaction.srem = asynctest.CoroutineMock()
+    mock_transaction.delete = asynctest.CoroutineMock()
+    mock_transaction.exec = asynctest.CoroutineMock()
+    datastore.redis.multi = asynctest.CoroutineMock(
+        return_value=mock_transaction
+    )
+    object_id = 123
+    container_id = -1
+    await datastore.set_container(object_id, container_id)
+    mock_transaction.srem.assert_called_once_with(
+        datastore.inventory_key(321), [json.dumps(object_id)]
+    )
+    mock_transaction.delete.assert_called_once_with(
+        [datastore.location_key(object_id),]
+    )
+    mock_transaction.exec.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_get_contents(datastore):
+    """
+    The set of objects contained within the referenced object is used to get
+    a dictionary representation of those objects.
+    """
+    datastore.redis.smembers_asset = asynctest.CoroutineMock(
+        return_value=["1", "2", "3",]
+    )
+    objects = {1: {"id": 1}, 2: {"id": 2}, 3: {"id": 3}}
+    datastore.get_objects = asynctest.CoroutineMock(return_value=objects)
+    result = await datastore.get_contents(123)
+    assert result == objects
+    datastore.redis.smembers_asset.assert_called_once_with(
+        datastore.inventory_key(123)
+    )
+    datastore.get_objects.assert_called_once_with([1, 2, 3])
+
+
+@pytest.mark.asyncio
+async def test_get_location(datastore):
+    """
+    Gets the id of the containing object given the contained object's id.
+    """
+    # Return the id if the referenced object is contained within another.
+    datastore.redis.get = asynctest.CoroutineMock(return_value="234")
+    result = await datastore.get_location(123)
+    assert result == 234
+    # Return None if the referenced object is not conatined in another.
+    datastore.redis.get = asynctest.CoroutineMock(return_value=None)
+    result = await datastore.get_location(123)
+    assert result is None

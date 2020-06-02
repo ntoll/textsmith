@@ -69,7 +69,7 @@ async def test_update_delete_object(datastore):  # noqa
 
 
 @pytest.mark.asyncio
-async def test_user_sign_up_journey_in_data(datastore):  # noqa
+async def test_user_journey_in_data(datastore):  # noqa
     """
     User related functions for signing up populate the datastore with the
     expected metadata at each step of the sign-up process:
@@ -81,6 +81,11 @@ async def test_user_sign_up_journey_in_data(datastore):  # noqa
     * A user can be verified by their email and password.
     * A user can be set as active or inactive.
     * Inactive users fail credential validation.
+
+    When a user is deleted, they are "soft" deleted such that:
+
+    * The user is set as inactive.
+    * The user's in game object is not located anywhere (they're in limbo).
     """
     confirmation_token = str(uuid4())
     email = "foo@bar.com"
@@ -122,6 +127,18 @@ async def test_user_sign_up_journey_in_data(datastore):  # noqa
     await datastore.set_user_active(email, True)
     result = await datastore.verify_user(email, password)
     assert result is True
+    # Place a user in a new location (a pre-requisite for checking user
+    # deletion).
+    room_id = await datastore.add_object(name="room")
+    await datastore.set_container(object_id, room_id)
+    # Deletion of object means they're disabled and in no location.
+    await datastore.delete_user(email)
+    # Inactive user's cannot be verified.
+    result = await datastore.verify_user(email, password)
+    assert result is False
+    # The user has no location.
+    user_location = await datastore.get_location(object_id)
+    assert user_location is None
 
 
 @pytest.mark.asyncio
@@ -141,3 +158,65 @@ async def test_set_get_last_seen(datastore):  # noqa
     # None existent user objects result in None.
     last_seen = await datastore.get_last_seen(-1)
     assert last_seen is None
+
+
+@pytest.mark.asyncio
+async def test_set_get_location(datastore):  # noqa
+    """
+    It is possible to set objects as being contained in others. As a result we
+    can discover which objects are inside others, and which object may contain
+    another.
+    """
+    room_id = await datastore.add_object(name="room")
+    user_id = await datastore.add_object(name="user")
+    item_id = await datastore.add_object(name="item")
+
+    # The item is carried by the user.
+    await datastore.set_container(item_id, user_id)
+    # The user is in the room.
+    await datastore.set_container(user_id, room_id)
+    # Check this is the case.
+    room_location = await datastore.get_location(room_id)
+    assert room_location is None  # The room isn't contained within anything.
+    user_location = await datastore.get_location(user_id)
+    assert user_location == room_id  # The user is in the room.
+    item_location = await datastore.get_location(item_id)
+    assert item_location == user_id  # The item is carried by the user.
+    # The room reports the user is in it.
+    room_contents = await datastore.get_contents(room_id)
+    assert len(room_contents) == 1
+    assert user_id in room_contents
+    assert room_contents[user_id]["name"] == "user"
+    # The user reports it is carrying the item.
+    user_contents = await datastore.get_contents(user_id)
+    assert len(user_contents) == 1
+    assert item_id in user_contents
+    assert user_contents[item_id]["name"] == "item"
+    # The item reports it doesn't contain anything.
+    item_contents = await datastore.get_contents(item_id)
+    assert item_contents == {}
+    # The user drops the item into the room.
+    await datastore.set_container(item_id, room_id)
+    # The room contains two things: the user and the item.
+    room_contents = await datastore.get_contents(room_id)
+    assert len(room_contents) == 2
+    assert user_id in room_contents
+    assert room_contents[user_id]["name"] == "user"
+    assert item_id in room_contents
+    assert room_contents[item_id]["name"] == "item"
+    # The user reports it isn't carrying anything.
+    user_contents = await datastore.get_contents(user_id)
+    assert user_contents == {}
+    # The item reports its location as the room.
+    item_location = await datastore.get_location(item_id)
+    assert item_location == room_id
+    # Setting a location to < 0 means the thing is not contained by anything.
+    await datastore.set_container(item_id, -1)
+    # Now the room contains just one thing again.
+    room_contents = await datastore.get_contents(room_id)
+    assert len(room_contents) == 1
+    assert user_id in room_contents
+    assert room_contents[user_id]["name"] == "user"
+    # The item reports it isn't contained anywhere.
+    item_location = await datastore.get_location(item_id)
+    assert item_location is None
