@@ -4,7 +4,6 @@ The pub/sub message passing methods and handlers needed for TextSmith.
 Copyright (C) 2019 Nicholas H.Tollervey.
 """
 import asyncio
-import collections
 import structlog  # type: ignore
 from asyncio_redis import Subscription  # type: ignore
 from asyncio_redis.exceptions import Error, ErrorReply  # type: ignore
@@ -41,7 +40,7 @@ class PubSub:
         Add the user ID to the list of channels this instance subscribes to
         via Redis. Log this event.
         """
-        self.connected_users[user_id] = collections.deque()
+        self.connected_users[user_id] = asyncio.Queue()
         try:
             await self.subscriber.subscribe(
                 [str(user_id),]
@@ -63,7 +62,7 @@ class PubSub:
         subscribes via Redis. Delete the message queue for the referenced user.
         Log this event. If there are undelivered messages, log these.
         """
-        undelivered_messages = self.connected_users.pop(user_id, None)
+        self.connected_users.pop(user_id, None)
         try:
             await self.subscriber.unsubscribe(
                 [str(user_id),]
@@ -80,13 +79,6 @@ class PubSub:
         logger.msg(
             "Unsubscribe.", user_id=user_id, connection_id=connection_id
         )
-        if undelivered_messages:
-            logger.msg(
-                "Undelivered messages.",
-                user_id=user_id,
-                connection_id=connection_id,
-                undelivered_messages=list(undelivered_messages),
-            )
 
     async def listen(self) -> None:
         """
@@ -102,7 +94,7 @@ class PubSub:
                 user_id = int(message.channel)
                 logger.msg("Message.", user_id=user_id, value=message.value)
                 if user_id in self.connected_users:
-                    self.connected_users[user_id].append(message.value)
+                    await self.connected_users[user_id].put(message.value)
             except ValueError:
                 logger.msg(
                     "Bad Message.",
@@ -130,7 +122,8 @@ class PubSub:
             raise ValueError(f"Cannot get messages for user {user_id}.")
         message_queue = self.connected_users.get(user_id)
         if message_queue:
-            return message_queue.popleft()
+            result = await message_queue.get()
+            return result
         else:
             return ""
 

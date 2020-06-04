@@ -38,7 +38,7 @@ flake8:
 	flake8 --ignore=E231,W503 --exclude=docs
 
 mypy:
-	find . \( -name _build -o -name var -o -path ./docs -o -path ./integration \) -type d -prune -o -name '*.py' -print0 | $(XARGS) mypy
+	find . \( -name _build -o -name var -o -path ./docs -o -path ./integration -o -path ./textsmith/mdx \) -type d -prune -o -name '*.py' -print0 | $(XARGS) mypy
 
 test: clean
 	pytest --random-order --disable-pytest-warnings

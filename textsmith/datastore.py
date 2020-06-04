@@ -347,6 +347,28 @@ class DataStore:
             return email
         return None
 
+    async def email_to_object_id(self, email: str) -> int:
+        """
+        Return the id of the in game object representing the player identified
+        by the referenced email address.
+        """
+        try:
+            key = self.user_key(email)
+            object_id = await self.redis.hget(key, "object_id")
+        except (Error, ErrorReply) as ex:  # pragma: no cover
+            logger.msg(
+                "Error getting object id from email.",
+                user_email=email,
+                exc_info=ex,
+                redis_error=True,
+            )
+            raise ex
+        if object_id:
+            return json.loads(object_id)
+        # Return false-y 0 to indicate no object id found for the referenced
+        # email address.
+        return 0
+
     async def set_user_password(self, email: str, password: str) -> bool:
         """
         Given a user identified by the referenced email address, update their
@@ -463,9 +485,8 @@ class DataStore:
         """
         now = datetime.now().isoformat()
         try:
-            result = await self.redis.hgetall_asdict(self.user_key(email))
-            user_data = {key: json.loads(val) for key, val in result.items()}
-            key = self.last_seen_key(user_data["object_id"])
+            object_id = await self.email_to_object_id(email)
+            key = self.last_seen_key(object_id)
             await self.redis.set(key, now)
         except (Error, ErrorReply) as ex:  # pragma: no cover
             logger.msg(
@@ -506,9 +527,8 @@ class DataStore:
         """
         await self.set_user_active(email, False)
         try:
-            result = await self.redis.hgetall_asdict(self.user_key(email))
-            user_data = {key: json.loads(val) for key, val in result.items()}
-            await self.set_container(user_data["object_id"], -1)
+            object_id = await self.email_to_object_id(email)
+            await self.set_container(object_id, -1)
         except (Error, ErrorReply) as ex:  # pragma: no cover
             logger.msg(
                 "Error deleting user.",

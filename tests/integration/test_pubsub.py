@@ -21,19 +21,14 @@ async def test_subscribe_unsubscribe(pool, pubsub, mocker):  # noqa
     # Get the next message for the player with object ID of 1.
     msg = await pubsub.get_message(1)
     assert msg == "Hello player 1"
-    # Whilst subscribed, if there are no further messages, just return an
-    # empty string.
-    msg = await pubsub.get_message(1)
-    assert msg == ""
     # Publish a message for the player with object ID of 1.
     await pool.publish("1", "Hello again player 1")
     await asyncio.sleep(0.1)
-    # Unsubscribing will cause undelivered messages to be logged.
+    # Unsubscribing will be logged.
     mock_logger = mocker.patch("textsmith.pubsub.logger")
     await pubsub.unsubscribe(1, "connectionid")
-    assert mock_logger.msg.call_count == 2
+    assert mock_logger.msg.call_count == 1
     assert mock_logger.msg.call_args_list[0][0][0] == "Unsubscribe."
-    assert mock_logger.msg.call_args_list[1][0][0] == "Undelivered messages."
     # Publish a message for the player with object ID of 1.
     await pool.publish("1", "Final hello player 1")
     # While unsubscribed, just return an empty string when polling for the

@@ -353,7 +353,8 @@ async def welcome():
         headers=dict(request.headers),
         user_id=session.get("user_id"),
     )
-    return await render_template("welcome.html")
+    form = LogIn()
+    return await render_template("welcome.html", form=form)
 
 
 @app.route("/client", methods=["GET"])
@@ -383,16 +384,13 @@ async def sending(user_id: int, connection_id: str) -> None:
     """
     while True:
         message = await current_app.pubsub.get_message(user_id)
-        if message:
-            await websocket.send(message)
-            logger.msg(
-                "Outgoing message.",
-                user_id=user_id,
-                connection_id=connection_id,
-                message=message,
-            )
-        # else:
-        #    await asyncio.sleep(0.0001)
+        await websocket.send(message)
+        logger.msg(
+            "Outgoing message.",
+            user_id=user_id,
+            connection_id=connection_id,
+            message=message,
+        )
 
 
 async def receiving(user_id: int, connection_id: str):
@@ -407,7 +405,7 @@ async def receiving(user_id: int, connection_id: str):
             connection_id=connection_id,
             message=data,
         )
-        await current_app.parser.eval(user_id, data)
+        await current_app.parser.eval(user_id, connection_id, data)
 
 
 def require_user(func):
@@ -449,7 +447,6 @@ def collect_websocket(func):
         # Log the connection client's details (mostly headers).
         logger.msg(
             "Websocket open.",
-            locale=get_locale(),
             user_id=websocket.user_id,
             connection_id=websocket.connection_id,
             url=websocket.url,
@@ -498,21 +495,25 @@ async def login():
     """
     Checks the credentials and creates a session.
     """
-    error = None
+    logger.msg(
+        "Log in.",
+        endpoint="/login",
+        locale=get_locale(),
+        headers=dict(request.headers),
+        user_id=session.get("user_id"),
+        method=request.method,
+    )
     form = LogIn()
+    error = None
     if form.validate_on_submit():
-        """
-        form = await request.form
-        username = form.get("username")
-        password = form.get("password")
-        user_id = await current_app.logic.verify_password(username, password)
+        email = form.email.data
+        password = form.password.data
+        user_id = await current_app.logic.verify_password(email, password)
         if user_id:
             session["user_id"] = user_id
             await current_app.logic.set_last_login(user_id)
             return redirect(url_for("client"))
         error = _("Could not log you in. Please try again.")
-        """
-        pass
     return await render_template("login.html", error=error, form=form)
 
 

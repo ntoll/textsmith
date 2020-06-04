@@ -127,6 +127,10 @@ async def test_user_journey_in_data(datastore):  # noqa
     await datastore.set_user_active(email, True)
     result = await datastore.verify_user(email, password)
     assert result is True
+    # It's possible to get the object id of the in-game object representing the
+    # user from the user's email address.
+    result = await datastore.email_to_object_id(email)
+    assert result == object_id
     # Place a user in a new location (a pre-requisite for checking user
     # deletion).
     room_id = await datastore.add_object(name="room")

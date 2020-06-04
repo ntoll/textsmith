@@ -3,10 +3,10 @@ Tests for the pub/sub message passing methods and handlers.
 
 Copyright (C) 2019 Nicholas H.Tollervey
 """
+import asyncio
 import pytest  # type: ignore
 import asynctest  # type: ignore
 from uuid import uuid4
-from collections import deque
 from unittest import mock
 from textsmith.pubsub import PubSub
 
@@ -53,7 +53,7 @@ async def test_subscribe():
         connection_id = str(uuid4())
         await ps.subscribe(user_id, connection_id)
         assert user_id in ps.connected_users
-        assert ps.connected_users[user_id] == deque()
+        assert isinstance(ps.connected_users[user_id], asyncio.Queue)
         ps.subscriber.subscribe.assert_called_once_with(
             [str(user_id),]
         )
@@ -72,8 +72,7 @@ async def test_unsubscribe():
       dictionary.
     * The subsciber object is awaited to unsubscribe from the Redis based
       message channel associated with the user_id.
-    * Both the unsubscribe event and any undelivered messages for the user
-      are logged.
+    * The unsubscribe event is logged.
     """
     mock_subscriber = asynctest.MagicMock()
     mock_subscriber.unsubscribe = asynctest.CoroutineMock()
@@ -81,14 +80,14 @@ async def test_unsubscribe():
     connection_id = str(uuid4())
     with asynctest.patch("textsmith.pubsub.logger") as mock_logger:
         ps = PubSub(mock_subscriber)
-        message_queue = deque(["Undelivered", "Messages",])
+        message_queue = asyncio.Queue()
         ps.connected_users[user_id] = message_queue
         await ps.unsubscribe(user_id, connection_id)
         assert user_id not in ps.connected_users
         ps.subscriber.unsubscribe.assert_called_once_with(
             [str(user_id),]
         )
-        assert mock_logger.msg.call_count == 2
+        assert mock_logger.msg.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -115,7 +114,7 @@ async def test_listen():
         await ps.subscribe(user_id, str(uuid4()))
         mock_logger.msg.reset_mock()
         await ps.listen()
-        assert ps.connected_users[user_id] == deque([mock_message.value,])
+        assert ps.connected_users[user_id].qsize() == 1
         assert mock_logger.msg.call_args_list[0] == mock.call(
             "Message.", user_id=user_id, value=mock_message.value
         )
@@ -154,19 +153,17 @@ async def test_get_message_that_exists():
     message is removed from the head of the queue).
     """
     user_id = 1
-    message_queue = deque(
-        ["First message", "Second message", "Third message",]
-    )
+    message_queue = asyncio.Queue()
+    await message_queue.put("First message")
+    await message_queue.put("Second message")
+    await message_queue.put("Third message")
     mock_subscriber = asynctest.MagicMock()
     ps = PubSub(mock_subscriber)
     ps.connected_users[user_id] = message_queue
     ps.listening = True
     result = await ps.get_message(user_id)
     assert result == "First message"
-    assert len(ps.connected_users[user_id]) == 2
-    assert ps.connected_users[user_id] == deque(
-        ["Second message", "Third message",]
-    )
+    assert ps.connected_users[user_id].qsize() == 2
 
 
 @pytest.mark.asyncio

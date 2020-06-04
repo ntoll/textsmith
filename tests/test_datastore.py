@@ -280,6 +280,22 @@ async def test_token_to_email(datastore):
 
 
 @pytest.mark.asyncio
+async def test_email_to_object_id(datastore):
+    """
+    Given a user's email address, return the integer for the associated in-game
+    object representing the user. Return 0 if no such player or object exists.
+    """
+    datastore.redis.hget = asynctest.CoroutineMock(return_value=None)
+    result = await datastore.email_to_object_id("foo@bar.com")
+    assert result == 0
+    datastore.redis.hget = asynctest.CoroutineMock(
+        return_value=json.dumps(123)
+    )
+    result = await datastore.email_to_object_id("foo@bar.com")
+    assert result == 123
+
+
+@pytest.mark.asyncio
 async def test_set_user_password(datastore):
     """
     Ensure the user referenced by the passed in email address has their
@@ -432,13 +448,7 @@ async def test_set_last_seen(datastore):
     they last interacted with the system.
     """
     email = "foo@bar.com"
-    datastore.redis.hgetall_asdict = asynctest.CoroutineMock(
-        return_value={
-            "password": json.dumps(datastore.hash_password("password123")),
-            "active": json.dumps(True),
-            "object_id": json.dumps(123),
-        }
-    )
+    datastore.email_to_object_id = asynctest.CoroutineMock(return_value=123)
     datastore.redis.set = asynctest.CoroutineMock()
     mock_datetime = mock.MagicMock()
     mock_datetime.now().isoformat.return_value = "a date"
@@ -473,13 +483,7 @@ async def test_delete_user(datastore):
     """
     email = "foo@bar.com"
     datastore.set_user_active = asynctest.CoroutineMock()
-    datastore.redis.hgetall_asdict = asynctest.CoroutineMock(
-        return_value={
-            "password": json.dumps(datastore.hash_password("password123")),
-            "active": json.dumps(True),
-            "object_id": json.dumps(123),
-        }
-    )
+    datastore.email_to_object_id = asynctest.CoroutineMock(return_value=123)
     datastore.set_container = asynctest.CoroutineMock()
     await datastore.delete_user(email)
     datastore.set_user_active.assert_called_once_with(email, False)

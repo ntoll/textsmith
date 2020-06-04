@@ -15,9 +15,11 @@
           <label class="menu-icon" for="menu-btn"><span class="navicon"></span></label>
           <ul class="menu">
             <li><a href="/">Home</a></li>
+            {% if session.user_id %}
+            <li><a href="/logout">Log Out</a></li>
+            {% else %}
             <li><a href="/client">Connect</a></li>
-            <li><a href="/privacy">Privacy</a></li>
-            <li><a href="/conduct">Code of Conduct</a></li>
+            {% endif %}
           </ul>
         </header>
         <article>

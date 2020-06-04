@@ -5,9 +5,11 @@ Copyright (C) 2019 Nicholas H.Tollervey.
 """
 import aiosmtplib  # type: ignore
 import structlog  # type: ignore
+import markdown  # type: ignore
 from typing import Union
 from email.message import EmailMessage
 from uuid import uuid4
+from textsmith.datastore import DataStore
 
 
 logger = structlog.get_logger()
@@ -20,7 +22,12 @@ class Logic:
     """
 
     def __init__(
-        self, datastore, email_host, email_port, email_from, email_password
+        self,
+        datastore: DataStore,
+        email_host: str,
+        email_port: int,
+        email_from: str,
+        email_password: str,
     ):
         """
         The datastore object contains methods for getting, setting and
@@ -32,12 +39,17 @@ class Logic:
         self.email_from = email_from
         self.email_password = email_password
 
-    async def verify_password(self, email, password):
+    async def verify_password(self, email: str, password: str) -> int:
         """
-        Given a user's email and password, return a boolean to indicate if the
-        combination is valid.
+        Given a user's email and password, return the user's in-game object id
+        or else 0 to indicate verification failed.
         """
-        return await self.datastore.verify_user(email, password)
+        is_valid = await self.datastore.verify_user(email, password)
+        if is_valid:
+            object_id = await self.datastore.email_to_object_id(email)
+            return object_id
+        else:
+            return 0
 
     async def set_last_login(self, user_id):
         """
@@ -104,3 +116,14 @@ class Logic:
             password=self.email_password,
             use_tls=True,
         )
+
+    async def emit_to_user(self, user_id: int, message: str):
+        """
+        Emit a message to the referenced user. All messages are run through
+        Markdown.
+        """
+        output = markdown.markdown(
+            str(message),
+            extensions=["textsmith.mdx.video", "textsmith.mdx.audio"],
+        )
+        await self.datastore.redis.publish(str(user_id), output)
