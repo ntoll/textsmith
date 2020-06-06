@@ -11,7 +11,16 @@ from unittest import mock
 from textsmith.pubsub import PubSub
 
 
-def test_init():
+@pytest.fixture
+def subscriber():
+    mock_subscriber = asynctest.CoroutineMock()
+    mock_subscriber.subscribe = asynctest.CoroutineMock()
+    mock_subscriber.next_published = asynctest.CoroutineMock()
+    mock_subscriber.unsubscribe = asynctest.CoroutineMock()
+    return mock_subscriber
+
+
+def test_init(subscriber):
     """
     Ensure the PubSub instance is initialised with the correct state.
 
@@ -22,19 +31,18 @@ def test_init():
     * The async.create_task is called once with the coroutine created by the
       object's listen method.
     """
-    mock_subscriber = mock.MagicMock()
     with mock.patch("textsmith.pubsub.asyncio") as mock_async, mock.patch(
         "textsmith.pubsub.PubSub.listen"
     ) as mock_listen:
-        ps = PubSub(mock_subscriber)
+        ps = PubSub(subscriber)
         assert ps.connected_users == {}
-        assert ps.subscriber == mock_subscriber
+        assert ps.subscriber == subscriber
         assert mock_async.create_task.call_count == 1
         assert mock_listen.call_count == 1
 
 
 @pytest.mark.asyncio
-async def test_subscribe():
+async def test_subscribe(subscriber):
     """
     Ensure that when the object is asked to subscribe to messages for a
     specific user, the following changes take place:
@@ -45,10 +53,8 @@ async def test_subscribe():
       channel associated with the user_id.
     * The subscription event is logged.
     """
-    mock_subscriber = asynctest.MagicMock()
-    mock_subscriber.subscribe = asynctest.CoroutineMock()
     with asynctest.patch("textsmith.pubsub.logger") as mock_logger:
-        ps = PubSub(mock_subscriber)
+        ps = PubSub(subscriber)
         user_id = 1
         connection_id = str(uuid4())
         await ps.subscribe(user_id, connection_id)
@@ -60,10 +66,11 @@ async def test_subscribe():
         mock_logger.msg.assert_called_once_with(
             "Subscribe.", user_id=user_id, connection_id=connection_id
         )
+        await ps.stop()
 
 
 @pytest.mark.asyncio
-async def test_unsubscribe():
+async def test_unsubscribe(subscriber):
     """
     Ensure that when the object is asked to unsubscribe from messages for a
     specific user, the following changes take place:
@@ -74,12 +81,10 @@ async def test_unsubscribe():
       message channel associated with the user_id.
     * The unsubscribe event is logged.
     """
-    mock_subscriber = asynctest.MagicMock()
-    mock_subscriber.unsubscribe = asynctest.CoroutineMock()
     user_id = 1
     connection_id = str(uuid4())
     with asynctest.patch("textsmith.pubsub.logger") as mock_logger:
-        ps = PubSub(mock_subscriber)
+        ps = PubSub(subscriber)
         message_queue = asyncio.Queue()
         ps.connected_users[user_id] = message_queue
         await ps.unsubscribe(user_id, connection_id)
@@ -88,10 +93,11 @@ async def test_unsubscribe():
             [str(user_id),]
         )
         assert mock_logger.msg.call_count == 1
+        await ps.stop()
 
 
 @pytest.mark.asyncio
-async def test_listen():
+async def test_listen(subscriber):
     """
     Ensure that messages receieved via pub/sub are added to the correct
     message queue for the referenced user.
@@ -103,14 +109,11 @@ async def test_listen():
     mock_message = mock.MagicMock()
     mock_message.channel = str(user_id)
     mock_message.value = "This is the textual content of the message."
-    mock_subscriber = asynctest.MagicMock()
-    mock_subscriber.subscribe = asynctest.CoroutineMock()
-    mock_subscriber.next_published = asynctest.CoroutineMock()
-    mock_subscriber.next_published.side_effect = [
+    subscriber.next_published.side_effect = [
         mock_message,
     ]
     with asynctest.patch("textsmith.pubsub.logger") as mock_logger:
-        ps = PubSub(mock_subscriber)
+        ps = PubSub(subscriber)
         await ps.subscribe(user_id, str(uuid4()))
         mock_logger.msg.reset_mock()
         await ps.listen()
@@ -118,10 +121,11 @@ async def test_listen():
         assert mock_logger.msg.call_args_list[0] == mock.call(
             "Message.", user_id=user_id, value=mock_message.value
         )
+        await ps.stop()
 
 
 @pytest.mark.asyncio
-async def test_listen_bad_message():
+async def test_listen_bad_message(subscriber):
     """
     If a message receieved via pub/sub does not have an integer as the channel
     name, then log the bad message and ignore.
@@ -132,13 +136,11 @@ async def test_listen_bad_message():
     mock_message = mock.MagicMock()
     mock_message.channel = "hello"
     mock_message.value = "This is the textual content of the message."
-    mock_subscriber = asynctest.MagicMock()
-    mock_subscriber.next_published = asynctest.CoroutineMock()
-    mock_subscriber.next_published.side_effect = [
+    subscriber.next_published.side_effect = [
         mock_message,
     ]
     with asynctest.patch("textsmith.pubsub.logger") as mock_logger:
-        ps = PubSub(mock_subscriber)
+        ps = PubSub(subscriber)
         await ps.listen()
         assert mock_logger.msg.call_args_list[0] == mock.call(
             "Bad Message.", channel="hello", value=mock_message.value
@@ -146,7 +148,7 @@ async def test_listen_bad_message():
 
 
 @pytest.mark.asyncio
-async def test_get_message_that_exists():
+async def test_get_message_that_exists(subscriber):
     """
     Ensure, if there are messages in the queue, the first to be received is
     returned and the state of the queue is updated accordingly (the returned
@@ -157,24 +159,23 @@ async def test_get_message_that_exists():
     await message_queue.put("First message")
     await message_queue.put("Second message")
     await message_queue.put("Third message")
-    mock_subscriber = asynctest.MagicMock()
-    ps = PubSub(mock_subscriber)
+    ps = PubSub(subscriber)
     ps.connected_users[user_id] = message_queue
     ps.listening = True
     result = await ps.get_message(user_id)
     assert result == "First message"
     assert ps.connected_users[user_id].qsize() == 2
+    await ps.stop()
 
 
 @pytest.mark.asyncio
-async def test_get_message_no_messages():
+async def test_get_message_no_messages(subscriber):
     """
     Ensure an empty string is returned if there are no pending messages in the
     message queue associated with the referenced user_id.
     """
     user_id = 1
-    mock_subscriber = asynctest.MagicMock()
-    ps = PubSub(mock_subscriber)
+    ps = PubSub(subscriber)
     ps.connected_users[user_id] = []
     ps.listening = True
     result = await ps.get_message(user_id)
@@ -182,29 +183,29 @@ async def test_get_message_no_messages():
 
 
 @pytest.mark.asyncio
-async def test_get_message_no_such_queue():
+async def test_get_message_no_such_queue(subscriber):
     """
     Ensure that an empty string is returned if there is no message queue
     associated with the referenced user_id.
     """
     user_id = 1
-    mock_subscriber = asynctest.MagicMock()
-    ps = PubSub(mock_subscriber)
+    ps = PubSub(subscriber)
     ps.listening = True
     result = await ps.get_message(user_id)
     assert result == ""
+    await ps.stop()
 
 
 @pytest.mark.asyncio
-async def test_get_message_not_listening():
+async def test_get_message_not_listening(subscriber):
     """
     Ensure a ValueError is raised if getting messages for a user_id and the
     PubSub instance is no longer listening (usually an indication that there's
     a problem).
     """
     user_id = 1
-    mock_subscriber = asynctest.MagicMock()
-    ps = PubSub(mock_subscriber)
+    ps = PubSub(subscriber)
     ps.listening = False
     with pytest.raises(ValueError):
         await ps.get_message(user_id)
+    await ps.stop()
