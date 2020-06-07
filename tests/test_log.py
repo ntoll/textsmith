@@ -1,7 +1,7 @@
 """
 Tests for log configuration.
 
-Copyright (C) 2019 Nicholas H.Tollervey
+Copyright (C) 2020 Nicholas H.Tollervey
 """
 import platform
 from textsmith import log

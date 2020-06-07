@@ -2,7 +2,7 @@
 Functions for parsing the user input. Calls into the game logic layer to affect
 changes and read data from the datastore.
 
-Copyright (C) 2019 Nicholas H.Tollervey.
+Copyright (C) 2020 Nicholas H.Tollervey.
 """
 import structlog  # type: ignore
 from flask_babel import gettext as _  # type: ignore

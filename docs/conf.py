@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'TextSmith'
-copyright = '2019, Nicholas H.Tollervey'
+copyright = '2020, Nicholas H.Tollervey'
 author = 'Nicholas H.Tollervey'
 
 # The full version, including alpha/beta/rc tags

@@ -1,7 +1,7 @@
 """
 The pub/sub message passing methods and handlers needed for TextSmith.
 
-Copyright (C) 2019 Nicholas H.Tollervey.
+Copyright (C) 2020 Nicholas H.Tollervey.
 """
 import asyncio
 import structlog  # type: ignore

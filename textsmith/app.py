@@ -1,7 +1,7 @@
 """
 Server application and configuration for web based layer of TextSmith.
 
-Copyright (C) 2019 Nicholas H.Tollervey.
+Copyright (C) 2020 Nicholas H.Tollervey.
 """
 import os
 import sys

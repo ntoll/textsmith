@@ -1,7 +1,7 @@
 """
 Functions that implement application logic.
 
-Copyright (C) 2019 Nicholas H.Tollervey.
+Copyright (C) 2020 Nicholas H.Tollervey.
 """
 import aiosmtplib  # type: ignore
 import structlog  # type: ignore
