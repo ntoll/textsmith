@@ -5,7 +5,6 @@ Copyright (C) 2020 Nicholas H.Tollervey
 """
 import asyncio
 import pytest  # type: ignore
-import asynctest  # type: ignore
 from uuid import uuid4
 from unittest import mock
 from textsmith.pubsub import PubSub
@@ -13,10 +12,10 @@ from textsmith.pubsub import PubSub
 
 @pytest.fixture
 def subscriber():
-    mock_subscriber = asynctest.CoroutineMock()
-    mock_subscriber.subscribe = asynctest.CoroutineMock()
-    mock_subscriber.next_published = asynctest.CoroutineMock()
-    mock_subscriber.unsubscribe = asynctest.CoroutineMock()
+    mock_subscriber = mock.AsyncMock()
+    mock_subscriber.subscribe = mock.AsyncMock()
+    mock_subscriber.next_published = mock.AsyncMock()
+    mock_subscriber.unsubscribe = mock.AsyncMock()
     return mock_subscriber
 
 
@@ -53,7 +52,7 @@ async def test_subscribe(subscriber):
       channel associated with the user_id.
     * The subscription event is logged.
     """
-    with asynctest.patch("textsmith.pubsub.logger") as mock_logger:
+    with mock.patch("textsmith.pubsub.logger") as mock_logger:
         ps = PubSub(subscriber)
         user_id = 1
         connection_id = str(uuid4())
@@ -83,7 +82,7 @@ async def test_unsubscribe(subscriber):
     """
     user_id = 1
     connection_id = str(uuid4())
-    with asynctest.patch("textsmith.pubsub.logger") as mock_logger:
+    with mock.patch("textsmith.pubsub.logger") as mock_logger:
         ps = PubSub(subscriber)
         message_queue = asyncio.Queue()
         ps.connected_users[user_id] = message_queue
@@ -112,16 +111,16 @@ async def test_listen(subscriber):
     subscriber.next_published.side_effect = [
         mock_message,
     ]
-    with asynctest.patch("textsmith.pubsub.logger") as mock_logger:
+    with mock.patch("textsmith.pubsub.logger") as mock_logger:
         ps = PubSub(subscriber)
         await ps.subscribe(user_id, str(uuid4()))
         mock_logger.msg.reset_mock()
-        await ps.listen()
+        with pytest.raises(StopAsyncIteration):
+            await ps.listen()
         assert ps.connected_users[user_id].qsize() == 1
         assert mock_logger.msg.call_args_list[0] == mock.call(
             "Message.", user_id=user_id, value=mock_message.value
         )
-        await ps.stop()
 
 
 @pytest.mark.asyncio
@@ -139,12 +138,14 @@ async def test_listen_bad_message(subscriber):
     subscriber.next_published.side_effect = [
         mock_message,
     ]
-    with asynctest.patch("textsmith.pubsub.logger") as mock_logger:
+    with mock.patch("textsmith.pubsub.logger") as mock_logger:
         ps = PubSub(subscriber)
-        await ps.listen()
-        assert mock_logger.msg.call_args_list[0] == mock.call(
-            "Bad Message.", channel="hello", value=mock_message.value
-        )
+        try:
+            await ps.listen()
+        except StopAsyncIteration:
+            assert mock_logger.msg.call_args_list[0] == mock.call(
+                "Bad Message.", channel="hello", value=mock_message.value
+            )
 
 
 @pytest.mark.asyncio
@@ -171,15 +172,15 @@ async def test_get_message_that_exists(subscriber):
 @pytest.mark.asyncio
 async def test_get_message_no_messages(subscriber):
     """
-    Ensure an empty string is returned if there are no pending messages in the
-    message queue associated with the referenced user_id.
+    Ensure an empty string is returned if there are no message queue for the
+    referenced user_id.
     """
     user_id = 1
     ps = PubSub(subscriber)
-    ps.connected_users[user_id] = []
     ps.listening = True
     result = await ps.get_message(user_id)
     assert result == ""
+    await ps.stop()
 
 
 @pytest.mark.asyncio

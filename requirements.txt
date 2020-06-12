@@ -1,6 +1,5 @@
 aiosmtplib
 asyncio_redis
-asynctest
 black
 colorama
 coverage

@@ -88,7 +88,7 @@ class PubSub:
         websocket connection.
         """
         self.listening = True
-        while True:
+        while self.listening:
             try:
                 message = await self.subscriber.next_published()
                 user_id = int(message.channel)
@@ -101,11 +101,12 @@ class PubSub:
                     channel=message.channel,
                     value=message.value,
                 )
-            except StopIteration:
+            except StopIteration:  # pragma: no cover
                 logger.msg("Broken subscriber.",)
                 self.listening = False
                 break
             except (Error, ErrorReply) as ex:  # pragma: no cover
+                self.listening = False
                 logger.msg(
                     "Error listening to Redis PubSub.",
                     exc_info=ex,

@@ -31,7 +31,7 @@ async def pool(event_loop):
         host="localhost", port=6379, db=1, poolsize=10
     )
     # Delete all items from database.
-    pool.flushdb()
+    await pool.flushdb()
     yield pool
     pool.close()
 
@@ -46,7 +46,7 @@ async def datastore():
         host="localhost", port=6379, db=1, poolsize=10
     )
     # Delete all items from database.
-    pool.flushdb()
+    await pool.flushdb()
     ds = DataStore(pool)
     yield ds
     pool.close()

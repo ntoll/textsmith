@@ -186,7 +186,7 @@ async def on_start(app: Quart = app) -> None:
         app.pubsub = pubsub  # type: ignore
         app.parser = Parser(logic)  # type: ignore
         logger.msg("Waiting for connections.")
-    except Exception as ex:
+    except Exception as ex:  # pragma: no cover
         # If the app can't connect to Redis, log this and exit.
         logger.msg("ABORT. Failed to connect to Redis.", exc_info=ex)
         loop = asyncio.get_running_loop()
@@ -219,23 +219,8 @@ def get_locale():
 
 
 # ----------  ERROR HANDLERS
-@app.errorhandler(401)
-async def unauthorized(e):
-    """
-    Handle 401 Unauthorized.
-    """
-    logger.msg(
-        "401",
-        method=request.method,
-        path=request.path,
-        locale=get_locale(),
-        headers=dict(request.headers),
-    )
-    return await render_template("401.html"), 401
-
-
 @app.errorhandler(404)
-async def page_not_found(e):
+async def page_not_found(e):  # pragma: no cover
     """
     Handle 404 Not Found.
     """
@@ -251,7 +236,7 @@ async def page_not_found(e):
 
 
 @app.errorhandler(500)
-async def internal_server_error(e):
+async def internal_server_error(e):  # pragma: no cover
     """
     Handle 500 Internal Server Error.
     """
@@ -417,11 +402,17 @@ def require_user(func):
 
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        user_id = session.get("user_id", None)
+        user_id = session.get("user_id")
         if user_id:
             logger.msg("User session.", user_id=user_id)
             return await func(*args, **kwargs)
         else:
+            logger.msg(
+                "401",
+                method=websocket.method,
+                path=websocket.path,
+                headers=dict(websocket.headers),
+            )
             abort(401)
 
     return wrapper
@@ -459,7 +450,7 @@ def collect_websocket(func):
             return await func(*args, **kwargs)
         finally:
             # Unsubscribe from messages published for this user.
-            await app.pubsub.unsubscribe(
+            await current_app.pubsub.unsubscribe(
                 websocket.user_id, websocket.connection_id
             )
             logger.msg(
@@ -504,7 +495,6 @@ async def login():
         method=request.method,
     )
     form = LogIn()
-    error = None
     if form.validate_on_submit():
         email = form.email.data
         password = form.password.data
@@ -513,6 +503,8 @@ async def login():
             session["user_id"] = user_id
             await current_app.logic.set_last_login(user_id)
             return redirect(url_for("client"))
+    error = None
+    if request.method == "POST":
         error = _("Could not log you in. Please try again.")
     return await render_template("login.html", error=error, form=form)
 
@@ -576,7 +568,7 @@ async def confirm(confirmation_token):
     form = SetPassword()
     if form.validate_on_submit():
         password = form.password1.data
-        await current_app.logic.confirm_user(confirmation_token, password)
+        await current_app.logic.confirm_user(str(confirmation_token), password)
         return redirect(url_for("welcome"))
     return await render_template(
         "confirm_user.html", form=form, confirmation_token=confirmation_token
