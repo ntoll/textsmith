@@ -31,6 +31,7 @@ async def _app():
     app.testing = True
     app.logic = mock.MagicMock()
     app.pubsub = mock_pubsub
+    app.parser = mock.MagicMock()
     app.config["WTF_CSRF_ENABLED"] = False
     yield app
     await app.shutdown()

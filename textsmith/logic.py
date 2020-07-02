@@ -6,9 +6,10 @@ Copyright (C) 2020 Nicholas H.Tollervey.
 import aiosmtplib  # type: ignore
 import structlog  # type: ignore
 import markdown  # type: ignore
-from typing import Union
+from typing import Sequence, Dict, Union
 from email.message import EmailMessage
 from uuid import uuid4
+from textsmith import defaults
 from textsmith.datastore import DataStore
 
 
@@ -127,3 +128,29 @@ class Logic:
             extensions=["textsmith.mdx.video", "textsmith.mdx.audio"],
         )
         await self.datastore.redis.publish(str(user_id), output)
+
+    async def emit_to_location(
+        self, room_id: int, exclude: Sequence[int], message: str
+    ):
+        """
+        Emit to all users not in the exclude list in the referenced room.
+        """
+        contents: Dict = await self.datastore.get_contents(room_id)
+        for key, value in contents:
+            if defaults.IS_USER in value:
+                await self.emit_to_user(value["id"], message)
+
+    async def gather_context(
+        self, user_id: int, connection_id: str, message_id: str
+    ) -> Dict:
+        """
+        Return a dictionary representation of the current context in which the
+        user finds themselves.
+
+        {
+          "user": the object representing the user issuing the command,
+          "room": the object representing the room containing the user,
+          "objects": a list of all the objects in the same room as the user,
+        }
+        """
+        return {}

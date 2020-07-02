@@ -12,9 +12,10 @@ import hashlib
 import json
 import structlog  # type: ignore
 from datetime import datetime
-from typing import Sequence, Dict, Union
+from typing import Sequence, Dict, Union, Mapping, Any
 from asyncio_redis import Pool  # type: ignore
 from asyncio_redis.exceptions import Error, ErrorReply  # type: ignore
+from textsmith import defaults
 
 
 logger = structlog.get_logger()
@@ -199,12 +200,17 @@ class DataStore:
                         Sequence[Union[str, int, float, bool]],
                     ],
                 ],
-            ] = {object_id: {} for object_id in ids}
+            ] = {}
             for object_id, result in results.items():
                 values = await result
+                obj = {}
+                if defaults.IS_DELETED in values:
+                    # Ignore deleted objects.
+                    continue
                 for key, value in values.items():
-                    object_attributes[object_id][key] = json.loads(value)
-                object_attributes[object_id]["id"] = object_id
+                    obj[key] = json.loads(value)
+                obj["id"] = object_id
+                object_attributes[object_id] = obj
         except (Error, ErrorReply) as ex:  # pragma: no cover
             logger.msg(
                 "Error getting attributes for objects.",
@@ -294,7 +300,8 @@ class DataStore:
         """
         try:
             # Make an object in the world.
-            object_id = await self.add_object()
+            meta_data = {defaults.IS_USER: True}
+            object_id = await self.add_object(**meta_data)  # type: ignore
             # Generate some simple metadata about the new user.
             user = {
                 "email": email,
@@ -539,6 +546,35 @@ class DataStore:
             raise ex
         logger.msg("Deleted user.", user_email=email)
 
+    async def delete_object(self, object_id: int) -> None:
+        """
+        Soft delete an object from the database. This involves setting the
+        is_deleted flag and ensuring the object isn't contained within another
+        object. The current time is set for the deleted flag.
+        """
+        try:
+            attrs: Mapping[
+                str,
+                Union[
+                    str,
+                    int,
+                    float,
+                    bool,
+                    Sequence[Union[str, int, float, bool]],
+                ],
+            ] = {defaults.IS_DELETED: datetime.now().isoformat()}
+            await self.annotate_object(object_id, **attrs)
+            await self.set_container(object_id, -1)
+        except (Error, ErrorReply) as ex:  # pragma: no cover
+            logger.msg(
+                "Error deleting object.",
+                object_id=object_id,
+                exc_info=ex,
+                redis_error=True,
+            )
+            raise ex
+        logger.msg("Deleted object.", object_id=object_id)
+
     async def set_container(self, object_id: int, container_id: int) -> None:
         """
         Ensure the referenced object is set to be contained by the object
@@ -601,6 +637,76 @@ class DataStore:
             self.inventory_key(object_id)
         )
         result = await self.get_objects([int(i) for i in contents])
+        return result
+
+    async def get_user_context(self, user_id: int) -> Dict[str, Any]:
+        """
+        Return the user object and a representation of the object containing
+        the user. This is used to obtain the minimal context needed for
+        social interactions (saying, emoting etc).
+
+        {
+          "user": { .. object representing the user .. },
+          "room": { .. object representing the room .. },
+        }
+        """
+        objects = [
+            user_id,
+        ]
+        room_id = await self.get_location(user_id)
+        if room_id:
+            objects.append(room_id)
+        raw_objects = await self.get_objects(objects)
+        result = {
+            "user": raw_objects[user_id],
+        }
+        if room_id:
+            result["room"] = raw_objects[room_id]
+        return result
+
+    async def get_users_in_room(
+        self, object_id: int
+    ) -> Sequence[
+        Dict[
+            str,
+            Union[
+                str, int, float, bool, Sequence[Union[str, int, float, bool]]
+            ],
+        ]
+    ]:
+        """
+        Return a list of object ids for users who are contained within the
+        room identified by the object id passed into the method.
+        """
+        objects = await self.get_contents(object_id)
+        result = []
+        for object_id, obj in objects.items():
+            if obj.get(defaults.IS_USER, False):
+                result.append(obj)
+        return result
+
+    async def get_script_context(self, user_id: int) -> Dict:
+        """
+        Returns a complete context in order that a script can be executed.
+        """
+        result = await self.get_user_context(user_id)
+        if result.get("room"):
+            room_id = int(result["room"]["id"])  # type: ignore
+            objects = await self.get_contents(room_id)
+            exits = []  # To hold all objects that represent an exit.
+            users = []  # To hold all objects that represent other users.
+            things = []  # To hold all objects in the current room.
+            for obj in objects.values():
+                if obj.get(defaults.IS_EXIT, False):
+                    exits.append(obj)
+                elif obj.get(defaults.IS_USER, False):
+                    if obj["id"] != user_id:
+                        users.append(obj)
+                else:
+                    things.append(obj)
+            result["exits"] = exits
+            result["users"] = users
+            result["things"] = things
         return result
 
     async def get_location(self, object_id) -> Union[int, None]:

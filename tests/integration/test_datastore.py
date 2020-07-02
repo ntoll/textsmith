@@ -4,13 +4,14 @@ Run datastore related tests against a test Redis instance.
 import pytest  # type: ignore
 import datetime
 from .fixtures import datastore  # noqa
+from textsmith import defaults
 from uuid import uuid4
 
 
 @pytest.mark.asyncio
-async def test_set_get_object(datastore):  # noqa
+async def test_set_get_delete_object(datastore):  # noqa
     """
-    Objects can be created and retrieved.
+    Objects can be created, retrieved and deleted.
     """
     name = "test"
     number = 123
@@ -32,6 +33,9 @@ async def test_set_get_object(datastore):  # noqa
     assert obj["float_number"] == float_number
     assert obj["boolean"] == boolean
     assert obj["list_stuff"] == list_stuff
+    await datastore.delete_object(object_id)
+    objects = await datastore.get_objects([object_id,])
+    assert len(objects) == 0
 
 
 @pytest.mark.asyncio
@@ -94,6 +98,11 @@ async def test_user_journey_in_data(datastore):  # noqa
     # of the game object associated with the player is returned.
     object_id = await datastore.create_user(email, confirmation_token)
     assert object_id > 0
+    # The object representing the user in the game is marked as a user's
+    # object.
+    user_obj = await datastore.get_objects([object_id,])
+    user_obj = user_obj[object_id]
+    assert user_obj[defaults.IS_USER] is True
     # We can get the email address from the metadata via the confirmation
     # token.
     new_user_email = await datastore.token_to_email(confirmation_token)
@@ -224,3 +233,77 @@ async def test_set_get_location(datastore):  # noqa
     # The item reports it isn't contained anywhere.
     item_location = await datastore.get_location(item_id)
     assert item_location is None
+
+
+@pytest.mark.asyncio
+async def test_contexts(datastore):  # noqa
+    """
+    The expected objects are placed into the right values in a dictionary
+    representing the context in which a script is run.
+    """
+    room_data = {
+        defaults.NAME: "room",
+        defaults.DESCRIPTION: "A test room.",
+        defaults.IS_ROOM: True,
+    }
+    room_id = await datastore.add_object(**room_data)
+    exit_data = {
+        defaults.NAME: "exit",
+        defaults.DESCRIPTION: "A test exit from the room.",
+        defaults.IS_EXIT: True,
+    }
+    exit_id = await datastore.add_object(**exit_data)
+    user_data = {
+        defaults.NAME: "user",
+        defaults.DESCRIPTION: "A test user.",
+        defaults.IS_USER: True,
+    }
+    user_id = await datastore.add_object(**user_data)
+    other_user_data = {
+        defaults.NAME: "other_user",
+        defaults.DESCRIPTION: "Another user in the game.",
+        defaults.IS_USER: True,
+    }
+    other_user_id = await datastore.add_object(**other_user_data)
+    item_data = {
+        defaults.NAME: "item",
+        defaults.DESCRIPTION: "A test object.",
+    }
+    item_id = await datastore.add_object(**item_data)
+
+    # The exit is in the room.
+    await datastore.set_container(exit_id, room_id)
+    # The item is in the room.
+    await datastore.set_container(item_id, room_id)
+    # The current user is in the room.
+    await datastore.set_container(user_id, room_id)
+    # The other user is in the room.
+    await datastore.set_container(other_user_id, room_id)
+    # Check the context as a result of the above settings.
+    context = await datastore.get_script_context(user_id)
+    # The current user is in the context.
+    assert context["user"][defaults.NAME] == "user"
+    assert context["user"][defaults.DESCRIPTION] == "A test user."
+    assert context["user"]["id"] == user_id
+    # The room containing the user is in the context.
+    assert context["room"][defaults.NAME] == "room"
+    assert context["room"][defaults.DESCRIPTION] == "A test room."
+    assert context["room"]["id"] == room_id
+    # The exit object is in the exits list.
+    assert len(context["exits"]) == 1
+    exit = context["exits"][0]
+    assert exit[defaults.NAME] == "exit"
+    assert exit[defaults.DESCRIPTION] == "A test exit from the room."
+    assert exit["id"] == exit_id
+    # The other user is in the users list.
+    assert len(context["users"]) == 1
+    other = context["users"][0]
+    assert other[defaults.NAME] == "other_user"
+    assert other[defaults.DESCRIPTION] == "Another user in the game."
+    assert other["id"] == other_user_id
+    # The object is in the things list.
+    assert len(context["things"]) == 1
+    thing = context["things"][0]
+    assert thing[defaults.NAME] == "item"
+    assert thing[defaults.DESCRIPTION] == "A test object."
+    assert thing["id"] == item_id

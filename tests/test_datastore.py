@@ -10,6 +10,7 @@ import uuid
 import datetime
 from unittest import mock
 from textsmith.datastore import DataStore
+from textsmith import defaults
 
 
 @pytest.fixture
@@ -116,6 +117,7 @@ async def test_get_objects(datastore):
     A list of object IDs returns a dictionary of Python dictionaries
     deserialised from Redis. The key in the dictionary is the id of the object.
     The associated dictionary contains the attributes and associated values.
+    Objects marked as deleted are ignored and not returned.
     """
     object1_name = "name1"
     object1_list = [1, 2.345, "six", False]
@@ -134,7 +136,11 @@ async def test_get_objects(datastore):
         {"name": json.dumps(object2_name), "list": json.dumps(object2_list)}
     )
     mock_result3.set_result(
-        {"name": json.dumps(object3_name), "list": json.dumps(object3_list)}
+        {
+            "name": json.dumps(object3_name),
+            "list": json.dumps(object3_list),
+            defaults.IS_DELETED: datetime.datetime.now().isoformat(),
+        }
     )
 
     mock_transaction = mock.AsyncMock()
@@ -152,7 +158,6 @@ async def test_get_objects(datastore):
     assert result == {
         1: {"id": 1, "name": object1_name, "list": object1_list},
         2: {"id": 2, "name": object2_name, "list": object2_list},
-        3: {"id": 3, "name": object3_name, "list": object3_list},
     }
 
 
@@ -252,6 +257,8 @@ async def test_create_user(datastore):
         datastore.token_key(confirmation_token), email
     )
     mock_transaction.exec.assert_called_once_with()
+    meta_data = {defaults.IS_USER: True}
+    datastore.add_object.assert_called_once_with(**meta_data)
 
 
 @pytest.mark.asyncio
@@ -540,6 +547,91 @@ async def test_get_contents(datastore):
         datastore.inventory_key(123)
     )
     datastore.get_objects.assert_called_once_with([1, 2, 3])
+
+
+@pytest.mark.asyncio
+async def test_get_user_context(datastore):
+    """
+    Objects representing the user and the room containing the user are
+    returned.
+    """
+    user_id = 123
+    room_id = 321
+    user_dict = {
+        "id": user_id,
+    }
+    room_dict = {
+        "id": room_id,
+    }
+    datastore.get_location = mock.AsyncMock(return_value=room_id)
+    datastore.get_objects = mock.AsyncMock(
+        return_value={user_id: user_dict, room_id: room_dict,}
+    )
+    result = await datastore.get_user_context(user_id)
+    assert result["user"] == user_dict
+    assert result["room"] == room_dict
+
+
+@pytest.mark.asyncio
+async def test_get_users_in_room(datastore):
+    """
+    A list of object ids representing the users in the referenced room is
+    returned.
+    """
+    objects = {
+        1: {"id": 1, defaults.IS_USER: True},
+        2: {"id": 2},
+        3: {"id": 3, defaults.IS_USER: True},
+    }
+    datastore.get_contents = mock.AsyncMock(return_value=objects)
+    result = await datastore.get_users_in_room(123)
+    assert result == [
+        {"id": 1, defaults.IS_USER: True},
+        {"id": 3, defaults.IS_USER: True},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_get_script_context(datastore):
+    """
+    A dictionary containing objects representing the referenced user, the
+    room containing the user, exits from the room, other users in the room and
+    any other objects in the room is returned so a script may execute in a
+    context.
+    """
+    user_id = 123
+    room_id = 321
+    user_dict = {
+        "id": user_id,
+        defaults.IS_USER: True,
+    }
+    room_dict = {
+        "id": room_id,
+        defaults.IS_ROOM: True,
+    }
+    user_context = {
+        "user": user_dict,
+        "room": room_dict,
+    }
+    datastore.get_user_context = mock.AsyncMock(return_value=user_context)
+    objects = {
+        1: {"id": 1, defaults.IS_USER: True},
+        2: {"id": 2},
+        3: {"id": 3, defaults.IS_EXIT: True},
+    }
+    datastore.get_contents = mock.AsyncMock(return_value=objects)
+    result = await datastore.get_script_context(user_id)
+    assert result["user"] == user_dict
+    assert result["room"] == room_dict
+    assert result["exits"] == [
+        {"id": 3, defaults.IS_EXIT: True},
+    ]
+    assert result["users"] == [
+        {"id": 1, defaults.IS_USER: True},
+    ]
+    assert result["things"] == [
+        {"id": 2},
+    ]
 
 
 @pytest.mark.asyncio
