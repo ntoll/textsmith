@@ -499,10 +499,10 @@ async def login():
     if form.validate_on_submit():
         email = form.email.data
         password = form.password.data
-        user_id = await current_app.logic.verify_password(email, password)
+        user_id = await current_app.logic.verify_credentials(email, password)
         if user_id:
             session["user_id"] = user_id
-            await current_app.logic.set_last_login(user_id)
+            await current_app.logic.set_last_seen(user_id)
             return redirect(url_for("client"))
     error = None
     if request.method == "POST":

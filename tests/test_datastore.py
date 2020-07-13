@@ -4,6 +4,7 @@ Tests for the datastore abstraction layer (Redis).
 Copyright (C) 2020 Nicholas H.Tollervey
 """
 import pytest  # type: ignore
+import quart.flask_patch  # type: ignore # noqa
 import json
 import asyncio
 import uuid

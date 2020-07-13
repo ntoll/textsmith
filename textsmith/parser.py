@@ -9,6 +9,7 @@ import structlog  # type: ignore
 from uuid import uuid4
 from textsmith.logic import Logic
 from flask_babel import gettext as _  # type: ignore
+from textsmith import defaults
 
 
 logger = structlog.get_logger()
@@ -32,29 +33,54 @@ class Parser:
         Evaluate the user's input message. If there's an error, recover by
         sending the error message from the associated exception object.
         """
+        # Give new messages a message_id for debugging purposes.
+        message_id = str(uuid4())
+        logger.msg(
+            "Assigning message id.",
+            message=message,
+            message_id=message_id,
+            user_id=user_id,
+            connection_id=connection_id,
+        )
         try:
-            await self.parse(user_id, connection_id, message)
+            await self.parse(user_id, connection_id, message_id, message)
         except Exception as ex:
-            await self.handle_exception(user_id, connection_id, ex)
+            await self.handle_exception(
+                user_id, connection_id, message_id, message, ex
+            )
 
-    async def handle_exception(self, user_id, connection_id, exception):
+    async def handle_exception(
+        self,
+        user_id: int,
+        connection_id: str,
+        message_id: str,
+        message: str,
+        exception: Exception,
+    ):
         """
         Given an exception raised in the logic or parsing layer of the game,
         extract the useful message which explains what the problem is, and turn
         it into a message back to the referenced user.
         """
         logger.msg(
-            "Exception",
+            "Exception.",
             user_id=user_id,
             connection_id=connection_id,
+            message_id=message_id,
+            message=message,
             exc_info=exception,
         )
-        await self.logic.emit_to_user(
-            user_id,
-            _("Sorry. Something went wrong when processing your command."),
+        reply: str = " ".join(
+            [
+                _("Sorry. Something went wrong when processing your command."),
+                f"id: {message_id}",
+            ]
         )
+        await self.logic.emit_to_user(user_id, reply)
 
-    async def parse(self, user_id: int, connection_id: str, message: str):
+    async def parse(
+        self, user_id: int, connection_id: str, message_id: str, message: str
+    ):
         """
         Parse the incoming message from the referenced user.
 
@@ -69,7 +95,7 @@ class Parser:
         Next the parser expects the first word of the message to be a verb. If
         this verb is one of several built-in commands, the remainder of the
         message is passed as a single string into the relevant function for
-        that verb (as defined in this module).
+        that verb (as defined in the defaults module).
 
         If the verb isn't built into the game engine, then the parser breaks
         the raw input apart into sections that follow the following patterns:
@@ -92,8 +118,8 @@ class Parser:
         to match objects against available aliases available in the current
         room's context. The following reserved words are synonyms:
 
-        "me" - the user.
-        "here" - the current location.
+        defaults.USER_ALIASES - the user.
+        defaults.ROOM_ALIASES - the current location.
 
         These reserved words are actually translated by Babel, so the
         equivalent terms in the user's preferred locale (if supported by
@@ -112,10 +138,10 @@ class Parser:
         matches the verb it attempts to "execute" it.
 
         Mostly, the attribute's value will be returned. However, if the
-        attribute's value is a string and that string has the characters
-        "#!" (hash-bang) at the start, then it'll attempt to evaluate the rest
-        of the string as a script (see the script module for more detail of how
-        this works).
+        attribute's value is a string and that string starts with the
+        characters defined in defaults.IS_SCRIPT, then it'll attempt to
+        evaluate the rest of the string as a script (see the script module for
+        more detail of how this works).
 
         If such "executable" attributes are found then the associated code will
         be run with the following objects in scope:
@@ -144,16 +170,6 @@ class Parser:
         # Don't do anything with empty messages.
         if not message.strip():
             return
-
-        # Give new messages a message_id for debugging purposes.
-        message_id = str(uuid4())
-        logger.msg(
-            "Assigning message id.",
-            message=message,
-            message_id=message_id,
-            user_id=user_id,
-            connection_id=connection_id,
-        )
 
         # Check and process special "shortcut" characters.
         message = message.lstrip()
@@ -197,44 +213,116 @@ class Parser:
         """
 
         # Act of last resort ~ choose a stock fun response. ;-)
-        response = random.choice(
-            [
-                _("I don't understand that."),
-                _("Nope. No idea what you're on about."),
-                _("I don't know what you mean."),
-                _("Try explaining that in a way I can understand."),
-                _("Yeah right... as if I know what you're on about. :-)"),
-                _("Let me try tha... nope."),
-                _("Ummm... you're not making sense. Again, but with feeling!"),
-                _("No idea. Try giving me something I understand."),
-                _("Huh? I don't understand. Maybe ask someone for help?"),
-                _("Try using commands I understand."),
-            ]
-        )
+        response = random.choice(defaults.HUH)
         i_give_up = f'"{message}", ' + response
         return await self.logic.emit_to_user(user_id, i_give_up)
 
-    async def say(self, user_id, connection_id, message_id, message):
+    async def say(
+        self, user_id: int, connection_id: str, message_id: str, message: str
+    ) -> None:
         """
         Say the message to everyone in the current location.
         """
-        pass
+        logger.msg(
+            "Say something.",
+            user_id=user_id,
+            connection_id=connection_id,
+            message_id=message_id,
+            message=message,
+        )
+        message = message.strip()
+        if message:
+            context = await self.logic.get_user_context(
+                user_id, connection_id, message_id
+            )
+            user_message = _('> You say, "*{message}*".').format(
+                message=message
+            )
+            await self.logic.emit_to_user(user_id, user_message)
+            if "room" in context:
+                username = await self.logic.get_attribute_value(
+                    context["user"], defaults.NAME
+                )
+                room_message = _('> {username} says, "*{message}*".').format(
+                    username=username, message=message
+                )
+                await self.logic.emit_to_room(
+                    context["room"]["id"], [user_id,], room_message
+                )
 
-    async def shout(self, user_id, connection_id, message_id, message):
+    async def shout(
+        self, user_id: int, connection_id: str, message_id: str, message: str
+    ) -> None:
         """
-        Shout (ALL CAPS) the message to everyone in the current location.
+        Shout (<strong></strong>) the message to everyone in the current
+        location.
         """
-        pass
+        logger.msg(
+            "Shout something.",
+            user_id=user_id,
+            connection_id=connection_id,
+            message_id=message_id,
+            message=message,
+        )
+        message = message.strip()
+        if message:
+            context = await self.logic.get_user_context(
+                user_id, connection_id, message_id
+            )
+            user_message = _('> You shout, "**{message}**".').format(
+                message=message
+            )
+            await self.logic.emit_to_user(user_id, user_message)
+            if "room" in context:
+                username = await self.logic.get_attribute_value(
+                    context["user"], defaults.NAME
+                )
+                room_message = f'> {username} shouts, "**{message}**".'
+                await self.logic.emit_to_room(
+                    context["room"]["id"], [user_id,], room_message
+                )
 
-    async def emote(self, user_id, connection_id, message_id, message):
+    async def emote(
+        self, user_id: int, connection_id: str, message_id: str, message: str
+    ) -> None:
         """
         Emote the message to everyone in the current location.
         """
-        pass
+        logger.msg(
+            "Emote something.",
+            user_id=user_id,
+            connection_id=connection_id,
+            message_id=message_id,
+            message=message,
+        )
+        message = message.strip()
+        if message:
+            context = await self.logic.get_user_context(
+                user_id, connection_id, message_id
+            )
+            username = await self.logic.get_attribute_value(
+                context["user"], defaults.NAME
+            )
+            emoted = "{username} {message}".format(
+                username=username, message=message
+            )
+            await self.logic.emit_to_user(user_id, emoted)
+            if "room" in context:
+                await self.logic.emit_to_room(
+                    context["room"]["id"], [user_id,], emoted
+                )
 
-    async def tell(self, user_id, connection_id, message_id, message):
+    async def tell(
+        self, user_id: int, connection_id: str, message_id: str, message: str
+    ) -> None:
         """
         Say the message to a specific person whilst being overheard by everyone
         else in the current location.
         """
-        pass
+        message = message.strip()
+        if message:
+            context = await self.logic.get_script_context(
+                user_id, connection_id, message_id
+            )
+            match = self.logic.match_object(message, context)
+            len(match)

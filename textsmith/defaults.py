@@ -4,9 +4,15 @@ Default attribute and function definitions for textual worlds.
 Copyright (C) 2020 Nicholas H.Tollervey.
 """
 import structlog  # type: ignore
+import re
+from flask_babel import lazy_gettext as _  # type: ignore
 
 
 logger = structlog.get_logger()
+
+
+#: Default indicator at the start of a string to indicate it is a script.
+IS_SCRIPT = "#!"
 
 
 #: The attribute containing the object's primary name.
@@ -47,3 +53,33 @@ EMOTE = "emote"
 TELL = "tell"
 #: The attribute describing how an object emits output.
 EMIT = "emit"
+
+
+#: Default aliases for the current user.
+USER_ALIASES = [
+    _("me"),
+    _("myself"),
+]
+#: Default aliases for the current location.
+ROOM_ALIASES = [
+    _("here"),
+    _("hither"),
+]
+#: Regex for matching object ids. e.g. #1234.
+MATCH_OBJECT_ID = re.compile(r"^#\d+$")
+
+
+#: Default messages of last resort when the user's input cannot be parsed. Huh?
+HUH = [
+    _("Huh? That doesn't make sense to me."),
+    _("I don't understand that."),
+    _("Nope. No idea what you're on about."),
+    _("I don't know what you mean."),
+    _("Try explaining that in a way I can understand."),
+    _("Yeah right... as if I know what you're on about. :-)"),
+    _("Let me try tha... nope."),
+    _("Ummm... you're not making sense. Again, but with feeling!"),
+    _("No idea. Try giving me something I understand."),
+    _("Huh? I don't understand. Maybe ask someone for help?"),
+    _("Try using commands I understand."),
+]

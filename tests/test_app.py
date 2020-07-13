@@ -129,7 +129,7 @@ async def test_login_post_bad(app):
     message is displayed.
     """
     client = app.test_client()
-    app.logic.verify_password = mock.AsyncMock(return_value=False)
+    app.logic.verify_credentials = mock.AsyncMock(return_value=False)
     data = {
         "email": "foo@bar.com",
         "password": "password123",
@@ -147,8 +147,8 @@ async def test_login_post_ok(app):
     A valid POSTed login form results in a redirect to the /client endpoint.
     """
     client = app.test_client()
-    app.logic.verify_password = mock.AsyncMock(return_value=1)
-    app.logic.set_last_login = mock.AsyncMock()
+    app.logic.verify_credentials = mock.AsyncMock(return_value=1)
+    app.logic.set_last_seen = mock.AsyncMock()
     data = {
         "email": "foo@bar.com",
         "password": "password123",
@@ -160,7 +160,7 @@ async def test_login_post_ok(app):
     async with client.session_transaction() as local_session:
         assert local_session["user_id"] == 1
     # User login time set.
-    app.logic.set_last_login.assert_called_once_with(1)
+    app.logic.set_last_seen.assert_called_once_with(1)
 
 
 @pytest.mark.asyncio
