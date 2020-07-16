@@ -97,7 +97,9 @@ class Parser:
         Next the parser expects the first word of the message to be a verb. If
         this verb is one of several built-in commands, the remainder of the
         message is passed as a single string into the relevant function for
-        that verb (as defined in the verbs module).
+        that verb (as defined in the verbs module). These verbs are translated
+        by Babel, so the equivalent verbs in the user's preferred locale (if
+        supported by TextSmith) should work instead.
 
         If the verb isn't built into the game engine, then the parser breaks
         the raw input apart into sections that follow the following patterns:
@@ -110,15 +112,22 @@ class Parser:
 
         look
         take sword
-        give sword to andrew
+        give big sword to andrew
         say "Hello there" to nicholas
 
         NOTE: English articles ("a", "the" etc) shouldn't be used in commands.
 
+        Verbs that start sentences are assumed to be single words. Direct
+        objects and indirect objects may be identified via multiple words.
+
         Anything enclosed in double-quotes (") is treated as a single entity if
         in the direct-object or indirect-object position. The parser will try
         to match objects against available aliases available in the current
-        room's context. The following reserved words are synonyms:
+        room's context. If there are no matches or multiple matches then the
+        parser will retain the string representation of the direct-object or
+        indirect-object.
+
+        The following lists of reserved words are synonyms:
 
         constants.USER_ALIASES - the user.
         constants.ROOM_ALIASES - the current location.
@@ -209,7 +218,7 @@ class Parser:
         args = ""
         if len(split_message) == 2:
             # The remainder of the message contains the "arguments" to use with
-            # the verb, and may ultimately contain the direct and indirectt
+            # the verb, and may ultimately contain the direct and indirect
             # objects (if needed).
             args = split_message[1]
         """
