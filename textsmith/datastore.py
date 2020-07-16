@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Sequence, Dict, Union, Mapping, Any
 from asyncio_redis import Pool  # type: ignore
 from asyncio_redis.exceptions import Error, ErrorReply  # type: ignore
-from textsmith import defaults
+from textsmith import constants
 
 
 logger = structlog.get_logger()
@@ -204,7 +204,7 @@ class DataStore:
             for object_id, result in results.items():
                 values = await result
                 obj = {}
-                if defaults.IS_DELETED in values:
+                if constants.IS_DELETED in values:
                     # Ignore deleted objects.
                     continue
                 for key, value in values.items():
@@ -300,7 +300,7 @@ class DataStore:
         """
         try:
             # Make an object in the world.
-            meta_data = {defaults.IS_USER: True}
+            meta_data = {constants.IS_USER: True}
             object_id = await self.add_object(**meta_data)  # type: ignore
             # Generate some simple metadata about the new user.
             user = {
@@ -562,7 +562,7 @@ class DataStore:
                     bool,
                     Sequence[Union[str, int, float, bool]],
                 ],
-            ] = {defaults.IS_DELETED: datetime.now().isoformat()}
+            ] = {constants.IS_DELETED: datetime.now().isoformat()}
             await self.annotate_object(object_id, **attrs)
             await self.set_container(object_id, -1)
         except (Error, ErrorReply) as ex:  # pragma: no cover
@@ -681,7 +681,7 @@ class DataStore:
         objects = await self.get_contents(object_id)
         result = []
         for object_id, obj in objects.items():
-            if obj.get(defaults.IS_USER, False):
+            if obj.get(constants.IS_USER, False):
                 result.append(obj)
         return result
 
@@ -697,9 +697,9 @@ class DataStore:
             users = []  # To hold all objects that represent other users.
             things = []  # To hold all objects in the current room.
             for obj in objects.values():
-                if obj.get(defaults.IS_EXIT, False):
+                if obj.get(constants.IS_EXIT, False):
                     exits.append(obj)
-                elif obj.get(defaults.IS_USER, False):
+                elif obj.get(constants.IS_USER, False):
                     if obj["id"] != user_id:
                         users.append(obj)
                 else:

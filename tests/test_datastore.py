@@ -11,7 +11,7 @@ import uuid
 import datetime
 from unittest import mock
 from textsmith.datastore import DataStore
-from textsmith import defaults
+from textsmith import constants
 
 
 @pytest.fixture
@@ -140,7 +140,7 @@ async def test_get_objects(datastore):
         {
             "name": json.dumps(object3_name),
             "list": json.dumps(object3_list),
-            defaults.IS_DELETED: datetime.datetime.now().isoformat(),
+            constants.IS_DELETED: datetime.datetime.now().isoformat(),
         }
     )
 
@@ -258,7 +258,7 @@ async def test_create_user(datastore):
         datastore.token_key(confirmation_token), email
     )
     mock_transaction.exec.assert_called_once_with()
-    meta_data = {defaults.IS_USER: True}
+    meta_data = {constants.IS_USER: True}
     datastore.add_object.assert_called_once_with(**meta_data)
 
 
@@ -580,15 +580,15 @@ async def test_get_users_in_room(datastore):
     returned.
     """
     objects = {
-        1: {"id": 1, defaults.IS_USER: True},
+        1: {"id": 1, constants.IS_USER: True},
         2: {"id": 2},
-        3: {"id": 3, defaults.IS_USER: True},
+        3: {"id": 3, constants.IS_USER: True},
     }
     datastore.get_contents = mock.AsyncMock(return_value=objects)
     result = await datastore.get_users_in_room(123)
     assert result == [
-        {"id": 1, defaults.IS_USER: True},
-        {"id": 3, defaults.IS_USER: True},
+        {"id": 1, constants.IS_USER: True},
+        {"id": 3, constants.IS_USER: True},
     ]
 
 
@@ -604,11 +604,11 @@ async def test_get_script_context(datastore):
     room_id = 321
     user_dict = {
         "id": user_id,
-        defaults.IS_USER: True,
+        constants.IS_USER: True,
     }
     room_dict = {
         "id": room_id,
-        defaults.IS_ROOM: True,
+        constants.IS_ROOM: True,
     }
     user_context = {
         "user": user_dict,
@@ -616,19 +616,19 @@ async def test_get_script_context(datastore):
     }
     datastore.get_user_context = mock.AsyncMock(return_value=user_context)
     objects = {
-        1: {"id": 1, defaults.IS_USER: True},
+        1: {"id": 1, constants.IS_USER: True},
         2: {"id": 2},
-        3: {"id": 3, defaults.IS_EXIT: True},
+        3: {"id": 3, constants.IS_EXIT: True},
     }
     datastore.get_contents = mock.AsyncMock(return_value=objects)
     result = await datastore.get_script_context(user_id)
     assert result["user"] == user_dict
     assert result["room"] == room_dict
     assert result["exits"] == [
-        {"id": 3, defaults.IS_EXIT: True},
+        {"id": 3, constants.IS_EXIT: True},
     ]
     assert result["users"] == [
-        {"id": 1, defaults.IS_USER: True},
+        {"id": 1, constants.IS_USER: True},
     ]
     assert result["things"] == [
         {"id": 2},

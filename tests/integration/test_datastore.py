@@ -4,7 +4,7 @@ Run datastore related tests against a test Redis instance.
 import pytest  # type: ignore
 import datetime
 from .fixtures import datastore  # noqa
-from textsmith import defaults
+from textsmith import constants
 from uuid import uuid4
 
 
@@ -102,7 +102,7 @@ async def test_user_journey_in_data(datastore):  # noqa
     # object.
     user_obj = await datastore.get_objects([object_id,])
     user_obj = user_obj[object_id]
-    assert user_obj[defaults.IS_USER] is True
+    assert user_obj[constants.IS_USER] is True
     # We can get the email address from the metadata via the confirmation
     # token.
     new_user_email = await datastore.token_to_email(confirmation_token)
@@ -242,32 +242,32 @@ async def test_contexts(datastore):  # noqa
     representing the context in which a script is run.
     """
     room_data = {
-        defaults.NAME: "room",
-        defaults.DESCRIPTION: "A test room.",
-        defaults.IS_ROOM: True,
+        constants.NAME: "room",
+        constants.DESCRIPTION: "A test room.",
+        constants.IS_ROOM: True,
     }
     room_id = await datastore.add_object(**room_data)
     exit_data = {
-        defaults.NAME: "exit",
-        defaults.DESCRIPTION: "A test exit from the room.",
-        defaults.IS_EXIT: True,
+        constants.NAME: "exit",
+        constants.DESCRIPTION: "A test exit from the room.",
+        constants.IS_EXIT: True,
     }
     exit_id = await datastore.add_object(**exit_data)
     user_data = {
-        defaults.NAME: "user",
-        defaults.DESCRIPTION: "A test user.",
-        defaults.IS_USER: True,
+        constants.NAME: "user",
+        constants.DESCRIPTION: "A test user.",
+        constants.IS_USER: True,
     }
     user_id = await datastore.add_object(**user_data)
     other_user_data = {
-        defaults.NAME: "other_user",
-        defaults.DESCRIPTION: "Another user in the game.",
-        defaults.IS_USER: True,
+        constants.NAME: "other_user",
+        constants.DESCRIPTION: "Another user in the game.",
+        constants.IS_USER: True,
     }
     other_user_id = await datastore.add_object(**other_user_data)
     item_data = {
-        defaults.NAME: "item",
-        defaults.DESCRIPTION: "A test object.",
+        constants.NAME: "item",
+        constants.DESCRIPTION: "A test object.",
     }
     item_id = await datastore.add_object(**item_data)
 
@@ -282,28 +282,28 @@ async def test_contexts(datastore):  # noqa
     # Check the context as a result of the above settings.
     context = await datastore.get_script_context(user_id)
     # The current user is in the context.
-    assert context["user"][defaults.NAME] == "user"
-    assert context["user"][defaults.DESCRIPTION] == "A test user."
+    assert context["user"][constants.NAME] == "user"
+    assert context["user"][constants.DESCRIPTION] == "A test user."
     assert context["user"]["id"] == user_id
     # The room containing the user is in the context.
-    assert context["room"][defaults.NAME] == "room"
-    assert context["room"][defaults.DESCRIPTION] == "A test room."
+    assert context["room"][constants.NAME] == "room"
+    assert context["room"][constants.DESCRIPTION] == "A test room."
     assert context["room"]["id"] == room_id
     # The exit object is in the exits list.
     assert len(context["exits"]) == 1
     exit = context["exits"][0]
-    assert exit[defaults.NAME] == "exit"
-    assert exit[defaults.DESCRIPTION] == "A test exit from the room."
+    assert exit[constants.NAME] == "exit"
+    assert exit[constants.DESCRIPTION] == "A test exit from the room."
     assert exit["id"] == exit_id
     # The other user is in the users list.
     assert len(context["users"]) == 1
     other = context["users"][0]
-    assert other[defaults.NAME] == "other_user"
-    assert other[defaults.DESCRIPTION] == "Another user in the game."
+    assert other[constants.NAME] == "other_user"
+    assert other[constants.DESCRIPTION] == "Another user in the game."
     assert other["id"] == other_user_id
     # The object is in the things list.
     assert len(context["things"]) == 1
     thing = context["things"][0]
-    assert thing[defaults.NAME] == "item"
-    assert thing[defaults.DESCRIPTION] == "A test object."
+    assert thing[constants.NAME] == "item"
+    assert thing[constants.DESCRIPTION] == "A test object."
     assert thing["id"] == item_id

@@ -9,7 +9,7 @@ import structlog  # type: ignore
 from uuid import uuid4
 from textsmith.logic import Logic
 from flask_babel import gettext as _  # type: ignore
-from textsmith import defaults
+from textsmith import constants
 
 
 logger = structlog.get_logger()
@@ -76,7 +76,9 @@ class Parser:
                 f"id: {message_id}",
             ]
         )
-        await self.logic.emit_to_user(user_id, reply)
+        await self.logic.emit_to_user(
+            user_id, constants.SYSTEM_OUTPUT.format(reply)
+        )
 
     async def parse(
         self, user_id: int, connection_id: str, message_id: str, message: str
@@ -95,7 +97,7 @@ class Parser:
         Next the parser expects the first word of the message to be a verb. If
         this verb is one of several built-in commands, the remainder of the
         message is passed as a single string into the relevant function for
-        that verb (as defined in the defaults module).
+        that verb (as defined in the constants module).
 
         If the verb isn't built into the game engine, then the parser breaks
         the raw input apart into sections that follow the following patterns:
@@ -118,8 +120,8 @@ class Parser:
         to match objects against available aliases available in the current
         room's context. The following reserved words are synonyms:
 
-        defaults.USER_ALIASES - the user.
-        defaults.ROOM_ALIASES - the current location.
+        constants.USER_ALIASES - the user.
+        constants.ROOM_ALIASES - the current location.
 
         These reserved words are actually translated by Babel, so the
         equivalent terms in the user's preferred locale (if supported by
@@ -139,7 +141,7 @@ class Parser:
 
         Mostly, the attribute's value will be returned. However, if the
         attribute's value is a string and that string starts with the
-        characters defined in defaults.IS_SCRIPT, then it'll attempt to
+        characters defined in constants.IS_SCRIPT, then it'll attempt to
         evaluate the rest of the string as a script (see the script module for
         more detail of how this works).
 
@@ -213,7 +215,7 @@ class Parser:
         """
 
         # Act of last resort ~ choose a stock fun response. ;-)
-        response = random.choice(defaults.HUH)
+        response = random.choice(constants.HUH)
         i_give_up = f'"{message}", ' + response
         return await self.logic.emit_to_user(user_id, i_give_up)
 
@@ -241,7 +243,7 @@ class Parser:
             await self.logic.emit_to_user(user_id, user_message)
             if "room" in context:
                 username = await self.logic.get_attribute_value(
-                    context["user"], defaults.NAME
+                    context["user"], constants.NAME
                 )
                 room_message = _('> {username} says, "*{message}*".').format(
                     username=username, message=message
@@ -275,9 +277,11 @@ class Parser:
             await self.logic.emit_to_user(user_id, user_message)
             if "room" in context:
                 username = await self.logic.get_attribute_value(
-                    context["user"], defaults.NAME
+                    context["user"], constants.NAME
                 )
-                room_message = f'> {username} shouts, "**{message}**".'
+                room_message = _(
+                    '> {username} shouts, "**{message}**".'
+                ).format(username=username, message=message)
                 await self.logic.emit_to_room(
                     context["room"]["id"], [user_id,], room_message
                 )
@@ -301,9 +305,9 @@ class Parser:
                 user_id, connection_id, message_id
             )
             username = await self.logic.get_attribute_value(
-                context["user"], defaults.NAME
+                context["user"], constants.NAME
             )
-            emoted = "{username} {message}".format(
+            emoted = _("{username} {message}").format(
                 username=username, message=message
             )
             await self.logic.emit_to_user(user_id, emoted)
@@ -319,10 +323,55 @@ class Parser:
         Say the message to a specific person whilst being overheard by everyone
         else in the current location.
         """
+        logger.msg(
+            "Tell something.",
+            user_id=user_id,
+            connection_id=connection_id,
+            message_id=message_id,
+            message=message,
+        )
         message = message.strip()
         if message:
             context = await self.logic.get_script_context(
                 user_id, connection_id, message_id
             )
-            match = self.logic.match_object(message, context)
-            len(match)
+            match, token = self.logic.match_object(message, context)
+            matches = len(match)
+            if matches == 1:
+                username = await self.logic.get_attribute_value(
+                    context["user"], constants.NAME
+                )
+                recipient = await self.logic.get_attribute_value(
+                    match[0], constants.NAME
+                )
+                recipient_id = match[0]["id"]
+                room = context.get("room", {})
+                room_id = room.get("id", 0)
+                # The clean_message is the message content without the
+                # recipient at the start.
+                clean_message = message.replace(token, "").strip()
+                if clean_message:
+                    # Only emit if there's something to say to the recipient.
+                    user_msg = _(
+                        '> You say to {recipient}, "*{message}*".'
+                    ).format(recipient=recipient, message=clean_message)
+                    recipient_msg = _(
+                        '> {username} says, "*{message}*" to you.'
+                    ).format(username=username, message=clean_message)
+                    room_msg = _(
+                        '> {username} says to {recipient}, "*{message}*".'
+                    ).format(
+                        username=username,
+                        recipient=recipient,
+                        message=clean_message,
+                    )
+                    await self.logic.emit_to_user(user_id, user_msg)
+                    await self.logic.emit_to_user(recipient_id, recipient_msg)
+                    if room_id:
+                        await self.logic.emit_to_room(
+                            room_id, [user_id, recipient_id,], room_msg
+                        )
+            elif matches == 0:
+                await self.logic.no_matching_object(user_id, "@" + message)
+            else:
+                await self.logic.clarify_object(user_id, "@" + message, match)

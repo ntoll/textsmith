@@ -6,12 +6,12 @@ Copyright (C) 2020 Nicholas H.Tollervey.
 import aiosmtplib  # type: ignore
 import structlog  # type: ignore
 import markdown  # type: ignore
-from typing import Sequence, Dict, Union
+from typing import Sequence, Dict, Union, Tuple
 from email.message import EmailMessage
 from uuid import uuid4
 from flask_babel import gettext as _  # type: ignore
 from textsmith.datastore import DataStore
-from textsmith import defaults
+from textsmith import constants
 
 
 logger = structlog.get_logger()
@@ -107,7 +107,7 @@ class Logic:
         logger.msg(
             "Send email.",
             content=message.get_content(),
-            **{k: v for k, v in message.items()}
+            **{k: v for k, v in message.items()},
         )
         await aiosmtplib.send(
             message,
@@ -139,7 +139,7 @@ class Logic:
         contents: Dict = await self.datastore.get_contents(room_id)
         for value in contents.values():
             if (
-                value.get(defaults.IS_USER, False)
+                value.get(constants.IS_USER, False)
                 and value["id"] not in exclude
             ):
                 await self.emit_to_user(value["id"], message)
@@ -202,13 +202,15 @@ class Logic:
             val = obj.get(attribute)
             if val is not None:
                 if isinstance(val, str):
-                    if val.strip().startswith(defaults.IS_SCRIPT):
+                    if val.strip().startswith(constants.IS_SCRIPT):
                         # Evaluate the code and return the result.
                         pass
                 return str(val)
         return ""
 
-    def match_object(self, identifier: str, context: Dict) -> Sequence[Dict]:
+    def match_object(
+        self, identifier: str, context: Dict
+    ) -> Tuple[Sequence[Dict], str]:
         """
         Given a potentially ambiguous user entered identifier, try to find a
         matching object in the given context.
@@ -226,25 +228,30 @@ class Logic:
         room, exits from the current room, other users within the current room
         and things found in the current room all in the current context.
 
-        The special aliases found in defaults.USER_ALIASES always refer to the
-        current user, and aliases found in defaults.ROOM_ALIASES refer to the
+        The special aliases found in constants.USER_ALIASES always refer to the
+        current user, and aliases found in constants.ROOM_ALIASES refer to the
         current room.
+
+        This method returns two values: a list of matching objects (or an empty
+        list of no matches found), and a string representing the token that
+        made the match (or an empty string if there were no matches).
+
+        For example, given the identifier: "#378 some more text", the return
+        values will be a list containing a single dictionary representing the
+        object with the id 378, and a string "#378" to indicate it was "#378"
+        that caused the match.
         """
         # Normalize identifier.
         identifier = identifier.strip().lower()
         if not identifier:
-            return []
+            return [], ""
 
         # Simple special aliases.
         words = identifier.split()
-        if words[0] in defaults.USER_ALIASES:
-            return [
-                context["user"],
-            ]
-        if words[0] in defaults.ROOM_ALIASES:
-            return [
-                context["room"],
-            ]
+        if words[0] in constants.USER_ALIASES:
+            return [context["user"],], words[0]
+        if words[0] in constants.ROOM_ALIASES:
+            return [context["room"],], words[0]
 
         # Candidate objects are things in the current context to which the user
         # may refer.
@@ -256,9 +263,17 @@ class Logic:
         )
 
         # Check for object id in candidate objects.
-        if defaults.MATCH_OBJECT_ID.match(words[0]):
+        if constants.MATCH_OBJECT_ID.match(words[0]):
             object_id = int(words[0][1:])
-            return [obj for obj in candidate_objects if obj["id"] == object_id]
+            matches = [
+                obj for obj in candidate_objects if obj["id"] == object_id
+            ]
+            if matches:
+                # Matches by valid object_id.
+                return matches, words[0]
+            else:
+                # No match for a valid object_id.
+                return [], ""
 
         # Check for matching names or aliases.
         matched_objects = []
@@ -270,8 +285,9 @@ class Logic:
                 if self.matches_name(name, obj):
                     matched_objects.append(obj)
             if matched_objects:
-                return matched_objects
-        return matched_objects
+                return matched_objects, name
+        # No matches.
+        return [], ""
 
     def matches_name(self, name: str, obj: Dict) -> bool:
         """
@@ -280,10 +296,54 @@ class Logic:
         for a name match.
         """
         name = name.lower()
-        obj_name = obj.get(defaults.NAME, "").lower()
+        obj_name = obj.get(constants.NAME, "").lower()
         if obj_name == name:
             return True
-        aliases = [alias.lower() for alias in obj.get(defaults.ALIAS, [])]
+        aliases = [alias.lower() for alias in obj.get(constants.ALIAS, [])]
         if name in aliases:
             return True
         return False
+
+    async def clarify_object(
+        self, user_id: int, message: str, match: Sequence[Dict]
+    ) -> None:
+        """
+        A problem match (containing more than one object) needs to be handled
+        by asking the user to clarify or re-state their term of reference to
+        the desired object.
+        """
+        preamble = _("The following message was ambiguous:")
+        message = '  "' + message + '"'
+        object_intro = _("Multiple objects matched:")
+        request = _(
+            "Please try to be more specific (an object's ID is unique)."
+        )
+        object_details = []
+        for obj in match:
+            name = obj.get(constants.NAME, "")
+            obj_id = obj["id"]
+            aliases = ", ".join(obj.get(constants.ALIAS, []))
+            object_details.append(f"  {name} (#{obj_id}) [{aliases}]")
+        matched_objects = "\n".join(object_details)
+        response = "\n\n".join(
+            [preamble, message, object_intro, matched_objects, request,]
+        )
+        await self.emit_to_user(
+            user_id, constants.SYSTEM_OUTPUT.format(response)
+        )
+
+    async def no_matching_object(self, user_id: int, message: str) -> None:
+        """
+        There is a problem because the expected object match could not be
+        found. Report this and ask the user to clarify or re-state their term
+        of reference to the desired object.
+        """
+        preamble = _("The following message didn't match any objects:")
+        message = '  "' + message + '"'
+        request = _(
+            "Please try to be more specific (an object's ID is unique)."
+        )
+        response = "\n\n".join([preamble, message, request,])
+        await self.emit_to_user(
+            user_id, constants.SYSTEM_OUTPUT.format(response)
+        )

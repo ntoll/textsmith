@@ -1,5 +1,6 @@
 """
-Default attribute and function definitions for textual worlds.
+Constant values for textual worlds. Mostly indicates default names for object
+attributes.
 
 Copyright (C) 2020 Nicholas H.Tollervey.
 """
@@ -83,3 +84,7 @@ HUH = [
     _("Huh? I don't understand. Maybe ask someone for help?"),
     _("Try using commands I understand."),
 ]
+
+
+#: The HTML fragment template for system or error messages for the user.
+SYSTEM_OUTPUT = "<pre><code>{}</code></pre>"
