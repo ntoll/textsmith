@@ -97,7 +97,7 @@ class Parser:
         Next the parser expects the first word of the message to be a verb. If
         this verb is one of several built-in commands, the remainder of the
         message is passed as a single string into the relevant function for
-        that verb (as defined in the constants module).
+        that verb (as defined in the verbs module).
 
         If the verb isn't built into the game engine, then the parser breaks
         the raw input apart into sections that follow the following patterns:
