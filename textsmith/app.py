@@ -208,15 +208,7 @@ def get_locale():
     """
     Get the locale for the current request.
     """
-    # if a user is logged in, use the locale from the user settings
-    # user = getattr(g, 'user', None)
-    # if user is not None:
-    #    return user.locale
-    # otherwise try to guess the language from the user accept
-    # header the browser transmits.  We support de/fr/en in this
-    # example.  The best match wins.
-    return "en"
-    # return request.accept_languages.best_match(["de", "fr", "en"])
+    return request.accept_languages.best_match(["de", "fr", "en"])
 
 
 # ----------  ERROR HANDLERS
@@ -366,7 +358,7 @@ async def client():
 async def sending(user_id: int, connection_id: str) -> None:
     """
     Handle the sending of messages to a connected websocket. Simply read
-    messages off a message bus for the current user.
+    messages off a message queue for the current user.
     """
     while True:
         message = await current_app.pubsub.get_message(user_id)
@@ -381,7 +373,8 @@ async def sending(user_id: int, connection_id: str) -> None:
 
 async def receiving(user_id: int, connection_id: str):
     """
-    Parse incoming data.
+    Parse incoming data. Any resulting output will but put in the user's
+    message queue.
     """
     while True:
         data = await websocket.receive()

@@ -5,9 +5,11 @@ changes and read data from the datastore.
 Copyright (C) 2020 Nicholas H.Tollervey.
 """
 import random
+import html
 import structlog  # type: ignore
 from uuid import uuid4
 from textsmith.logic import Logic
+from textsmith.verbs import Verbs, UnknownVerb
 from flask_babel import gettext as _  # type: ignore
 from textsmith import constants
 
@@ -27,6 +29,7 @@ class Parser:
         state transitions.
         """
         self.logic = logic
+        self.verbs = Verbs(self.logic)  # Built in verbs/functions.
 
     async def eval(self, user_id: int, connection_id: str, message: str):
         """
@@ -43,7 +46,10 @@ class Parser:
             connection_id=connection_id,
         )
         try:
-            await self.parse(user_id, connection_id, message_id, message)
+            # All user input is immediately cleaned so it's safe to render
+            # client side.
+            escaped = html.escape(message)
+            await self.parse(user_id, connection_id, message_id, escaped)
         except Exception as ex:
             await self.handle_exception(
                 user_id, connection_id, message_id, message, ex
@@ -186,201 +192,44 @@ class Parser:
         message = message.lstrip()
         if message.startswith('"'):
             # " The user is saying something to everyone in their location.
-            return await self.say(
+            return await self.verbs._say(
                 user_id, connection_id, message_id, message[1:]
             )
         elif message.startswith("!"):
             # ! The user is shouting something to everyone in their location.
-            return await self.shout(
+            return await self.verbs._shout(
                 user_id, connection_id, message_id, message[1:]
             )
         elif message.startswith(":"):
             # : The user is emoting something to everyone in their location.
-            return await self.emote(
+            return await self.verbs._emote(
                 user_id, connection_id, message_id, message[1:]
             )
         elif message.startswith("@"):
             # @ The user is saying something to a specific person in their
             # location.
-            return await self.tell(
+            return await self.verbs._tell(
                 user_id, connection_id, message_id, message[1:]
             )
 
-        """
-        # Gather the context in which the message is to be parsed.
-        context = await self.logic.gather_context(
-            user_id, connection_id, message_id
-        )
-
         # Check for verbs built into the game.
-        split_message = message.split(" ", 1)
-        verb = split_message[0]  # The first word in a message is a verb.
+        split_input = message.split(" ", 1)
+        verb = split_input[0]  # The first word in a message is a verb.
         args = ""
-        if len(split_message) == 2:
+        if len(split_input) == 2:
             # The remainder of the message contains the "arguments" to use with
             # the verb, and may ultimately contain the direct and indirect
             # objects (if needed).
-            args = split_message[1]
-        """
+            args = split_input[1]
+        try:
+            return await self.verbs(
+                user_id, connection_id, message_id, verb, args
+            )
+        except UnknownVerb:
+            # No matching verb has been found, so pass on silently.
+            pass
 
         # Act of last resort ~ choose a stock fun response. ;-)
         response = random.choice(constants.HUH)
         i_give_up = f'"{message}", ' + response
         return await self.logic.emit_to_user(user_id, i_give_up)
-
-    async def say(
-        self, user_id: int, connection_id: str, message_id: str, message: str
-    ) -> None:
-        """
-        Say the message to everyone in the current location.
-        """
-        logger.msg(
-            "Say something.",
-            user_id=user_id,
-            connection_id=connection_id,
-            message_id=message_id,
-            message=message,
-        )
-        message = message.strip()
-        if message:
-            context = await self.logic.get_user_context(
-                user_id, connection_id, message_id
-            )
-            user_message = _('> You say, "*{message}*".').format(
-                message=message
-            )
-            await self.logic.emit_to_user(user_id, user_message)
-            if "room" in context:
-                username = await self.logic.get_attribute_value(
-                    context["user"], constants.NAME
-                )
-                room_message = _('> {username} says, "*{message}*".').format(
-                    username=username, message=message
-                )
-                await self.logic.emit_to_room(
-                    context["room"]["id"], [user_id,], room_message
-                )
-
-    async def shout(
-        self, user_id: int, connection_id: str, message_id: str, message: str
-    ) -> None:
-        """
-        Shout (<strong></strong>) the message to everyone in the current
-        location.
-        """
-        logger.msg(
-            "Shout something.",
-            user_id=user_id,
-            connection_id=connection_id,
-            message_id=message_id,
-            message=message,
-        )
-        message = message.strip()
-        if message:
-            context = await self.logic.get_user_context(
-                user_id, connection_id, message_id
-            )
-            user_message = _('> You shout, "**{message}**".').format(
-                message=message
-            )
-            await self.logic.emit_to_user(user_id, user_message)
-            if "room" in context:
-                username = await self.logic.get_attribute_value(
-                    context["user"], constants.NAME
-                )
-                room_message = _(
-                    '> {username} shouts, "**{message}**".'
-                ).format(username=username, message=message)
-                await self.logic.emit_to_room(
-                    context["room"]["id"], [user_id,], room_message
-                )
-
-    async def emote(
-        self, user_id: int, connection_id: str, message_id: str, message: str
-    ) -> None:
-        """
-        Emote the message to everyone in the current location.
-        """
-        logger.msg(
-            "Emote something.",
-            user_id=user_id,
-            connection_id=connection_id,
-            message_id=message_id,
-            message=message,
-        )
-        message = message.strip()
-        if message:
-            context = await self.logic.get_user_context(
-                user_id, connection_id, message_id
-            )
-            username = await self.logic.get_attribute_value(
-                context["user"], constants.NAME
-            )
-            emoted = _("{username} {message}").format(
-                username=username, message=message
-            )
-            await self.logic.emit_to_user(user_id, emoted)
-            if "room" in context:
-                await self.logic.emit_to_room(
-                    context["room"]["id"], [user_id,], emoted
-                )
-
-    async def tell(
-        self, user_id: int, connection_id: str, message_id: str, message: str
-    ) -> None:
-        """
-        Say the message to a specific person whilst being overheard by everyone
-        else in the current location.
-        """
-        logger.msg(
-            "Tell something.",
-            user_id=user_id,
-            connection_id=connection_id,
-            message_id=message_id,
-            message=message,
-        )
-        message = message.strip()
-        if message:
-            context = await self.logic.get_script_context(
-                user_id, connection_id, message_id
-            )
-            match, token = self.logic.match_object(message, context)
-            matches = len(match)
-            if matches == 1:
-                username = await self.logic.get_attribute_value(
-                    context["user"], constants.NAME
-                )
-                recipient = await self.logic.get_attribute_value(
-                    match[0], constants.NAME
-                )
-                recipient_id = match[0]["id"]
-                room = context.get("room", {})
-                room_id = room.get("id", 0)
-                # The clean_message is the message content without the
-                # recipient at the start.
-                clean_message = message.replace(token, "").strip()
-                if clean_message:
-                    # Only emit if there's something to say to the recipient.
-                    user_msg = _(
-                        '> You say to {recipient}, "*{message}*".'
-                    ).format(recipient=recipient, message=clean_message)
-                    recipient_msg = _(
-                        '> {username} says, "*{message}*" to you.'
-                    ).format(username=username, message=clean_message)
-                    room_msg = _(
-                        '> {username} says to {recipient}, "*{message}*".'
-                    ).format(
-                        username=username,
-                        recipient=recipient,
-                        message=clean_message,
-                    )
-                    await self.logic.emit_to_user(user_id, user_msg)
-                    await self.logic.emit_to_user(recipient_id, recipient_msg)
-                    if room_id:
-                        await self.logic.emit_to_room(
-                            room_id, [user_id, recipient_id,], room_msg
-                        )
-            elif matches == 0:
-                await self.logic.no_matching_object(user_id, "@" + message)
-            else:
-                await self.logic.clarify_object(user_id, "@" + message, match)

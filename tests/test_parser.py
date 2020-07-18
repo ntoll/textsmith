@@ -5,9 +5,11 @@ Copyright (C) 2020 Nicholas H.Tollervey
 """
 import pytest  # type: ignore
 import quart.flask_patch  # type: ignore # noqa
+import html
 from unittest import mock
 from uuid import uuid4
 from textsmith.parser import Parser
+from textsmith.verbs import UnknownVerb
 from textsmith.logic import Logic
 from textsmith.datastore import DataStore
 from textsmith import constants
@@ -82,6 +84,24 @@ async def test_eval(parser, user_id, connection_id, message_id, message):
 
 
 @pytest.mark.asyncio
+async def test_eval_escape(
+    parser, user_id, connection_id, message_id, message
+):
+    """
+    Before any parsing happens the user's input is escaped to to remove any
+    injected HTML.
+    """
+    bad_message = '<a href="#" onclick="alert(\'I am a popup!\');">Link</a>'
+    expected = html.escape(bad_message)
+    parser.parse = mock.AsyncMock()
+    with mock.patch("textsmith.parser.uuid4", return_value=message_id):
+        await parser.eval(user_id, connection_id, bad_message)
+    parser.parse.assert_called_once_with(
+        user_id, connection_id, message_id, expected
+    )
+
+
+@pytest.mark.asyncio
 async def test_eval_fail(parser, user_id, connection_id, message_id, message):
     """
     The exception handling method is called to gracefully recover from any
@@ -150,9 +170,9 @@ async def test_parse_shortcut_say(parser, user_id, connection_id, message_id):
     If the message starts with a double quote, it's a built-in short cut for
     saying something in the current location.
     """
-    parser.say = mock.AsyncMock()
+    parser.verbs._say = mock.AsyncMock()
     await parser.parse(user_id, connection_id, message_id, '"Hello')
-    parser.say.assert_called_once_with(
+    parser.verbs._say.assert_called_once_with(
         user_id, connection_id, message_id, "Hello"
     )
 
@@ -165,9 +185,9 @@ async def test_parse_shortcut_shout(
     If the message starts with an exclamation mark, it's a built-in short cut
     for shouting something in the current location.
     """
-    parser.shout = mock.AsyncMock()
+    parser.verbs._shout = mock.AsyncMock()
     await parser.parse(user_id, connection_id, message_id, "!Hello")
-    parser.shout.assert_called_once_with(
+    parser.verbs._shout.assert_called_once_with(
         user_id, connection_id, message_id, "Hello"
     )
 
@@ -180,9 +200,9 @@ async def test_parse_shortcut_emote(
     If the message starts with a colon, it's a built-in short cut for emoting
     something in the current location.
     """
-    parser.emote = mock.AsyncMock()
+    parser.verbs._emote = mock.AsyncMock()
     await parser.parse(user_id, connection_id, message_id, ":waves")
-    parser.emote.assert_called_once_with(
+    parser.verbs._emote.assert_called_once_with(
         user_id, connection_id, message_id, "waves"
     )
 
@@ -193,10 +213,24 @@ async def test_parse_shortcut_tell(parser, user_id, connection_id, message_id):
     If the message starts with an "at" sign , it's a built-in short cut for
     saying something to someone specific in the current location.
     """
-    parser.tell = mock.AsyncMock()
+    parser.verbs._tell = mock.AsyncMock()
     await parser.parse(user_id, connection_id, message_id, "@user hello")
-    parser.tell.assert_called_once_with(
+    parser.verbs._tell.assert_called_once_with(
         user_id, connection_id, message_id, "user hello"
+    )
+
+
+@pytest.mark.asyncio
+async def test_parse_built_in_verb(parser, user_id, connection_id, message_id):
+    """
+    If the message starts with a single word built-in verb, this is immediately
+    evaluated with the message after the verb used for further verb-specific
+    processing.
+    """
+    parser.verbs = mock.AsyncMock()
+    await parser.parse(user_id, connection_id, message_id, "foo bar")
+    parser.verbs.assert_called_once_with(
+        user_id, connection_id, message_id, "foo", "bar"
     )
 
 
@@ -207,383 +241,14 @@ async def test_parse_last_resort(parser, user_id, connection_id, message_id):
     ensure a fun response is put onto the user's message queue.
     """
     parser.logic.emit_to_user = mock.AsyncMock()
+    parser.verbs = mock.AsyncMock(side_effect=UnknownVerb())
     await parser.parse(user_id, connection_id, message_id, "foo")
+    parser.verbs.assert_called_once_with(
+        user_id, connection_id, message_id, "foo", ""
+    )
     assert parser.logic.emit_to_user.call_count == 1
     assert parser.logic.emit_to_user.await_args_list[0][0][0] == user_id
     msg = parser.logic.emit_to_user.await_args_list[0][0][1]
     assert msg.startswith('"foo", ')
     response = msg.replace('"foo", ', "")
     assert response in constants.HUH
-
-
-@pytest.mark.asyncio
-async def test_say(
-    parser, user_id, room_id, connection_id, message_id, message
-):
-    """
-    A message is said in the current location. This results in the expected
-    messages being put onto the expected message queues.
-    """
-    username = "a user"
-    parser.logic.get_user_context = mock.AsyncMock(
-        return_value={
-            "user": {
-                "id": user_id,
-                constants.IS_USER: True,
-                constants.NAME: username,
-            },
-            "room": {"id": room_id, constants.IS_ROOM: True,},
-        }
-    )
-    parser.logic.emit_to_user = mock.AsyncMock()
-    parser.logic.emit_to_room = mock.AsyncMock()
-    await parser.say(user_id, connection_id, message_id, message)
-    parser.logic.emit_to_user.assert_called_once_with(
-        user_id, f'> You say, "*{message}*".'
-    )
-    parser.logic.emit_to_room.assert_called_once_with(
-        room_id, [user_id,], f'> {username} says, "*{message}*".'
-    )
-
-
-@pytest.mark.asyncio
-async def test_say_whitespace(
-    parser, user_id, room_id, connection_id, message_id
-):
-    """
-    Messages containing just whitespace are ignored.
-    """
-    username = "a user"
-    parser.logic.get_user_context = mock.AsyncMock(
-        return_value={
-            "user": {
-                "id": user_id,
-                constants.IS_USER: True,
-                constants.NAME: username,
-            },
-            "room": {"id": room_id, constants.IS_ROOM: True,},
-        }
-    )
-    parser.logic.emit_to_user = mock.AsyncMock()
-    parser.logic.emit_to_room = mock.AsyncMock()
-    await parser.say(user_id, connection_id, message_id, "      ")
-    assert parser.logic.emit_to_user.call_count == 0
-    assert parser.logic.emit_to_room.call_count == 0
-
-
-@pytest.mark.asyncio
-async def test_shout(
-    parser, user_id, room_id, connection_id, message_id, message
-):
-    """
-    A message is shouted in the current location. This results in the expected
-    messages being put onto the expected message queues.
-    """
-    username = "a user"
-    parser.logic.get_user_context = mock.AsyncMock(
-        return_value={
-            "user": {
-                "id": user_id,
-                constants.IS_USER: True,
-                constants.NAME: username,
-            },
-            "room": {"id": room_id, constants.IS_ROOM: True,},
-        }
-    )
-    parser.logic.emit_to_user = mock.AsyncMock()
-    parser.logic.emit_to_room = mock.AsyncMock()
-    await parser.shout(user_id, connection_id, message_id, message)
-    parser.logic.emit_to_user.assert_called_once_with(
-        user_id, f'> You shout, "**{message}**".'
-    )
-    parser.logic.emit_to_room.assert_called_once_with(
-        room_id, [user_id,], f'> {username} shouts, "**{message}**".'
-    )
-
-
-@pytest.mark.asyncio
-async def test_shout_whitespace(
-    parser, user_id, room_id, connection_id, message_id
-):
-    """
-    Messages containing just whitespace are ignored.
-    """
-    username = "a user"
-    parser.logic.get_user_context = mock.AsyncMock(
-        return_value={
-            "user": {
-                "id": user_id,
-                constants.IS_USER: True,
-                constants.NAME: username,
-            },
-            "room": {"id": room_id, constants.IS_ROOM: True,},
-        }
-    )
-    parser.logic.emit_to_user = mock.AsyncMock()
-    parser.logic.emit_to_room = mock.AsyncMock()
-    await parser.shout(user_id, connection_id, message_id, "      ")
-    assert parser.logic.emit_to_user.call_count == 0
-    assert parser.logic.emit_to_room.call_count == 0
-
-
-@pytest.mark.asyncio
-async def test_emote(
-    parser, user_id, room_id, connection_id, message_id, message
-):
-    """
-    A message is emoted in the current location. This results in the expected
-    messages being put onto the expected message queues.
-    """
-    username = "a user"
-    parser.logic.get_user_context = mock.AsyncMock(
-        return_value={
-            "user": {
-                "id": user_id,
-                constants.IS_USER: True,
-                constants.NAME: username,
-            },
-            "room": {"id": room_id, constants.IS_ROOM: True,},
-        }
-    )
-    parser.logic.emit_to_user = mock.AsyncMock()
-    parser.logic.emit_to_room = mock.AsyncMock()
-    await parser.emote(user_id, connection_id, message_id, message)
-    expected = f"{username} {message}"
-    parser.logic.emit_to_user.assert_called_once_with(user_id, expected)
-    parser.logic.emit_to_room.assert_called_once_with(
-        room_id, [user_id,], expected
-    )
-
-
-@pytest.mark.asyncio
-async def test_emote_whitespace(
-    parser, user_id, room_id, connection_id, message_id
-):
-    """
-    Messages containing just whitespace are ignored.
-    """
-    username = "a user"
-    parser.logic.get_user_context = mock.AsyncMock(
-        return_value={
-            "user": {
-                "id": user_id,
-                constants.IS_USER: True,
-                constants.NAME: username,
-            },
-            "room": {"id": room_id, constants.IS_ROOM: True,},
-        }
-    )
-    parser.logic.emit_to_user = mock.AsyncMock()
-    parser.logic.emit_to_room = mock.AsyncMock()
-    await parser.emote(user_id, connection_id, message_id, "      ")
-    assert parser.logic.emit_to_user.call_count == 0
-    assert parser.logic.emit_to_room.call_count == 0
-
-
-@pytest.mark.asyncio
-async def test_tell(parser, user_id, room_id, connection_id, message_id):
-    """
-    As message is (publicly) told to a specific user in the current context.
-    """
-    username = "a user"
-    parser.logic.get_script_context = mock.AsyncMock(
-        return_value={
-            "user": {
-                "id": user_id,
-                constants.IS_USER: True,
-                constants.NAME: username,
-            },
-            "room": {
-                "id": room_id,
-                constants.IS_ROOM: True,
-                constants.NAME: "a room",
-            },
-            "exits": [
-                {
-                    "id": 2222,
-                    constants.IS_EXIT: True,
-                    constants.NAME: "A path",
-                    constants.ALIAS: ["path",],
-                },
-            ],
-            "users": [
-                {
-                    "id": 3333,
-                    constants.IS_USER: True,
-                    constants.NAME: "Fred",
-                    constants.ALIAS: ["Freddy", "Freddo",],
-                },
-                {
-                    "id": 4444,
-                    constants.IS_USER: True,
-                    constants.NAME: "Alice",
-                    constants.ALIAS: ["Al", "Ali",],
-                },
-            ],
-            "things": [],
-        }
-    )
-    parser.logic.emit_to_user = mock.AsyncMock()
-    parser.logic.emit_to_room = mock.AsyncMock()
-    await parser.tell(user_id, connection_id, message_id, "ali Hello, world!")
-    assert parser.logic.emit_to_user.call_count == 2
-    assert parser.logic.emit_to_room.call_count == 1
-    assert parser.logic.emit_to_user.await_args_list[0][0][0] == user_id
-    user_msg = '> You say to Alice, "*Hello, world!*".'
-    assert parser.logic.emit_to_user.await_args_list[0][0][1] == user_msg
-    assert parser.logic.emit_to_user.await_args_list[1][0][0] == 4444
-    recipient_msg = '> a user says, "*Hello, world!*" to you.'
-    assert parser.logic.emit_to_user.await_args_list[1][0][1] == recipient_msg
-    assert parser.logic.emit_to_room.await_args_list[0][0][0] == room_id
-    assert parser.logic.emit_to_room.await_args_list[0][0][1] == [
-        user_id,
-        4444,
-    ]
-    room_msg = '> a user says to Alice, "*Hello, world!*".'
-    assert parser.logic.emit_to_room.await_args_list[0][0][2] == room_msg
-
-
-@pytest.mark.asyncio
-async def test_tell_whitespace(
-    parser, user_id, room_id, connection_id, message_id
-):
-    """
-    Messages containing just whitespace are ignored.
-    """
-    username = "a user"
-    parser.logic.get_user_context = mock.AsyncMock(
-        return_value={
-            "user": {
-                "id": user_id,
-                constants.IS_USER: True,
-                constants.NAME: username,
-            },
-            "room": {"id": room_id, constants.IS_ROOM: True,},
-        }
-    )
-    parser.logic.emit_to_user = mock.AsyncMock()
-    parser.logic.emit_to_room = mock.AsyncMock()
-    await parser.tell(user_id, connection_id, message_id, "      ")
-    assert parser.logic.emit_to_user.call_count == 0
-    assert parser.logic.emit_to_room.call_count == 0
-
-
-@pytest.mark.asyncio
-async def test_tell_too_many_matches(
-    parser, user_id, room_id, connection_id, message_id
-):
-    """
-    As message is (publicly) told to a specific user in the current context.
-    """
-    username = "a user"
-    parser.logic.get_script_context = mock.AsyncMock(
-        return_value={
-            "user": {
-                "id": user_id,
-                constants.IS_USER: True,
-                constants.NAME: username,
-            },
-            "room": {
-                "id": room_id,
-                constants.IS_ROOM: True,
-                constants.NAME: "a room",
-            },
-            "exits": [
-                {
-                    "id": 2222,
-                    constants.IS_EXIT: True,
-                    constants.NAME: "A path",
-                    constants.ALIAS: ["path",],
-                },
-            ],
-            "users": [
-                {
-                    "id": 3333,
-                    constants.IS_USER: True,
-                    constants.NAME: "Fred",
-                    constants.ALIAS: ["Freddy", "Freddo", "user"],
-                },
-                {
-                    "id": 4444,
-                    constants.IS_USER: True,
-                    constants.NAME: "Alice",
-                    constants.ALIAS: ["Al", "Ali", "user",],
-                },
-            ],
-            "things": [],
-        }
-    )
-    parser.logic.clarify_object = mock.AsyncMock()
-    message = "user Hello, world!"
-    await parser.tell(user_id, connection_id, message_id, message)
-    parser.logic.clarify_object.assert_called_once_with(
-        user_id,
-        "@" + message,
-        [
-            {
-                "id": 3333,
-                constants.IS_USER: True,
-                constants.NAME: "Fred",
-                constants.ALIAS: ["Freddy", "Freddo", "user"],
-            },
-            {
-                "id": 4444,
-                constants.IS_USER: True,
-                constants.NAME: "Alice",
-                constants.ALIAS: ["Al", "Ali", "user",],
-            },
-        ],
-    )
-
-
-@pytest.mark.asyncio
-async def test_tell_no_matches(
-    parser, user_id, room_id, connection_id, message_id
-):
-    """
-    As message is (publicly) told to a specific user in the current context.
-    """
-    username = "a user"
-    parser.logic.get_script_context = mock.AsyncMock(
-        return_value={
-            "user": {
-                "id": user_id,
-                constants.IS_USER: True,
-                constants.NAME: username,
-            },
-            "room": {
-                "id": room_id,
-                constants.IS_ROOM: True,
-                constants.NAME: "a room",
-            },
-            "exits": [
-                {
-                    "id": 2222,
-                    constants.IS_EXIT: True,
-                    constants.NAME: "A path",
-                    constants.ALIAS: ["path",],
-                },
-            ],
-            "users": [
-                {
-                    "id": 3333,
-                    constants.IS_USER: True,
-                    constants.NAME: "Fred",
-                    constants.ALIAS: ["Freddy", "Freddo", "user"],
-                },
-                {
-                    "id": 4444,
-                    constants.IS_USER: True,
-                    constants.NAME: "Alice",
-                    constants.ALIAS: ["Al", "Ali", "user",],
-                },
-            ],
-            "things": [],
-        }
-    )
-    parser.logic.no_matching_object = mock.AsyncMock()
-    message = "foo Hello, world!"
-    await parser.tell(user_id, connection_id, message_id, message)
-    parser.logic.no_matching_object.assert_called_once_with(
-        user_id, "@" + message
-    )
