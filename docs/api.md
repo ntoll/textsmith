@@ -53,4 +53,5 @@ Take a look around! The code is simple and short.
 ```eval_rst
 .. automodule:: textsmith.verbs
     :members:
+    :private-members:
 ```
