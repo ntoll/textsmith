@@ -2,7 +2,21 @@
 Functions for parsing the user input. Calls into the game logic layer to affect
 changes and read data from the datastore.
 
-Copyright (C) 2020 Nicholas H.Tollervey.
+Copyright (C) 2020 Nicholas H.Tollervey (ntoll@ntoll.org).
+"""
+"""
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>
 """
 import random
 import html
@@ -97,10 +111,10 @@ class Parser:
         There are four special characters which, if they start the message, act
         as shortcuts for common communication related activities:
 
-        " - the user says whatever follows in the message.
-        ! - make it appear like the user is shouting the message.
-        : - "emote" the message directly as "username " + message.
-        @ - the user is saying something directly to another @user.
+        * ``"`` - the user says whatever follows in the message.
+        * ``!`` - make it appear like the user is shouting the message.
+        * ``:`` - "emote" the message directly as "username " + message.
+        * ``@`` - the user is saying something directly to another @user.
 
         Next the parser expects the first word of the message to be a verb. If
         this verb is one of several built-in commands, the remainder of the
@@ -110,18 +124,18 @@ class Parser:
         supported by TextSmith) should work instead.
 
         If the verb isn't built into the game engine, then the parser breaks
-        the raw input apart into sections that follow the following patterns:
+        the raw input apart into sections that follow the following patterns::
 
-        VERB
-        VERB DIRECT-OBJECT
-        VERB DIRECT-OBJECT PREPOSITION INDIRECT-OBJECT
+            VERB
+            VERB DIRECT-OBJECT
+            VERB DIRECT-OBJECT PREPOSITION INDIRECT-OBJECT
 
-        Examples of these patterns are:
+        Examples of these patterns are::
 
-        look
-        take sword
-        give big sword to andrew
-        say "Hello there" to nicholas
+            look
+            take sword
+            give big sword to andrew
+            say "Hello there" to nicholas
 
         NOTE: English articles ("a", "the" etc) shouldn't be used in commands.
 
@@ -137,8 +151,8 @@ class Parser:
 
         The following lists of reserved words are synonyms:
 
-        constants.USER_ALIASES - the user.
-        constants.ROOM_ALIASES - the current location.
+        * ``constants.USER_ALIASES`` - the user.
+        * ``constants.ROOM_ALIASES`` - the current location.
 
         These reserved words are actually translated by Babel, so the
         equivalent terms in the user's preferred locale (if supported by
@@ -165,18 +179,21 @@ class Parser:
         If such "executable" attributes are found then the associated code will
         be run with the following objects in scope:
 
-        user - a reference to the user who issued the command.
-        room - a reference to the room in which the user is situated.
-        exits - objects that allow the user to move out of the current room.
-        users - objects representing other users currently in the current room.
-        things - all the other objects currently in the room.
-        this - a reference to the object which matched the verb (the user, room
-          or other object in scope).
-        direct_object - either the matching object or raw string for the direct
-          object. This could be None.
-        preposition - a string containing the preposition. This could be None.
-        indirect_object - either the matching object or raw string for the
-          indirect object. This could be None.
+        * ``user`` - a reference to the user who issued the command.
+        * ``room`` - a reference to the room in which the user is situated.
+        * ``exits`` - objects that allow the user to move out of the current
+          room.
+        * ``users`` - objects representing other users currently in the current
+          room.
+        * ``things`` - all the other objects currently in the room.
+        * ``this`` - a reference to the object which matched the verb (the
+          user, room or other object in scope).
+        * ``direct_object`` - either the matching object or raw string for the
+          direct object. This could be ``None``.
+        * ``preposition`` - a string containing the preposition. This could be
+          ``None``.
+        * ``indirect_object`` - either the matching object or raw string for
+          the indirect object. This could be ``None``.
 
         The user, room, direct_object and indirect_object objects can all be
         passed to a special "emit" function along with a message to display to

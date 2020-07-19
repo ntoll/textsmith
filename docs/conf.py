@@ -14,6 +14,11 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
 
+# Markdown dammit!
+import recommonmark
+from recommonmark.transform import AutoStructify
+source_suffix = ".md"
+
 
 # -- Project information -----------------------------------------------------
 
@@ -33,7 +38,8 @@ release = textsmith.__version__
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.viewcode'
+    'sphinx.ext.viewcode',
+    "recommonmark",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -66,10 +72,22 @@ html_sidebars = {
         'searchbox.html',
     ]
 }
+html_logo = 'icon.png'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-html_logo = 'icon.png'
+# The name of the Pygments (syntax highlighting) style to use.
+pygments_style = "sphinx"
+
+# See: https://recommonmark.readthedocs.io/en/latest/auto_structify.html for
+# information on using Sphinx directives within Markdown.
+github_doc_root = 'https://github.com/ntoll/textsmith/tree/master/docs/'
+def setup(app):
+    app.add_config_value('recommonmark_config', {
+            'url_resolver': lambda url: github_doc_root + url,
+            'auto_toc_tree_section': 'Contents',
+            }, True)
+    app.add_transform(AutoStructify)

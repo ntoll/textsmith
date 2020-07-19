@@ -18,6 +18,7 @@ pytest-mock
 pytest-random-order
 pytest-redis
 quart
+recommonmark
 sly
 sphinx
 structlog

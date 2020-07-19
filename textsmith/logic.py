@@ -1,7 +1,21 @@
 """
 Functions that implement application logic.
 
-Copyright (C) 2020 Nicholas H.Tollervey.
+Copyright (C) 2020 Nicholas H.Tollervey (ntoll@ntoll.org).
+"""
+"""
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>
 """
 import aiosmtplib  # type: ignore
 import structlog  # type: ignore
@@ -152,12 +166,12 @@ class Logic:
     ) -> Dict:
         """
         Return a dictionary representation of the immediate context in which
-        the user finds themselves.
+        the user finds themselves::
 
-        {
-            "user": { ... user's attributes ... },
-            "room": { ... room's attributes ... },
-        }
+            {
+                "user": { ... user's attributes ... },
+                "room": { ... room's attributes ... },
+            }
         """
         result = await self.datastore.get_user_context(user_id)
         logger.msg(
@@ -174,15 +188,15 @@ class Logic:
     ) -> Dict:
         """
         Return a dictionary representation of the room-wide context in which
-        the user finds themselves.
+        the user finds themselves::
 
-        {
-            "user": { ... user's attributes ... },
-            "room": { ... room's attributes ... },
-            "exits": [{ ... exits from the room ... }, ],
-            "users": [{ ... other users in the room ...}, ],
-            "things": [{ ... other objects in the room ...}, ],
-        }
+            {
+                "user": { ... user's attributes ... },
+                "room": { ... room's attributes ... },
+                "exits": [{ ... exits from the room ... }, ],
+                "users": [{ ... other users in the room ...}, ],
+                "things": [{ ... other objects in the room ...}, ],
+            }
         """
         result = await self.datastore.get_script_context(user_id)
         logger.msg(
@@ -197,9 +211,9 @@ class Logic:
     async def get_attribute_value(self, obj: Dict, attribute: str) -> str:
         """
         Return the value of the referenced object attribute. If the value is
-        a string that starts with "#!" evaluate it and return the result.
-        Otherwise, return a string representation of the value. If there is no
-        such value, return an empty string.
+        a string that starts with ``constants.IS_SCRIPT`` evaluate it and
+        return the result. Otherwise, return a string representation of the
+        value. If there is no such value, return an empty string.
         """
         if attribute in obj:
             val = obj.get(attribute)

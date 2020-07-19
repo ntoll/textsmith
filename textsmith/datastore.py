@@ -1,10 +1,22 @@
 """
-Functions that CRUD state stored in a Redis datastore.
+Functions that CRUD state stored in a Redis datastore. Data for objects is
+stored in Redis Hashes whose values are serialized as strings of JSON.
 
-Data for objects is stored in Redis Hashes whose values are serialized as
-strings of JSON.
+Copyright (C) 2020 Nicholas H.Tollervey (ntoll@ntoll.org).
+"""
+"""
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-Copyright (C) 2020 Nicholas H.Tollervey.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>
 """
 import os
 import binascii
@@ -643,12 +655,12 @@ class DataStore:
         """
         Return the user object and a representation of the object containing
         the user. This is used to obtain the minimal context needed for
-        social interactions (saying, emoting etc).
+        social interactions (saying, emoting etc)::
 
-        {
-          "user": { .. object representing the user .. },
-          "room": { .. object representing the room .. },
-        }
+            {
+              "user": { .. object representing the user .. },
+              "room": { .. object representing the room .. },
+            }
         """
         objects = [
             user_id,
