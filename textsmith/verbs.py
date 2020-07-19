@@ -32,7 +32,7 @@ class Verbs:
     and the translation to the actual method to use will happen automatically.
     """
 
-    def __init__(self, logic: Logic):
+    def __init__(self, logic: Logic) -> None:
         """
         The logic object contains methods for implementing game logic and
         state transitions.

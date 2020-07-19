@@ -4,12 +4,8 @@ attributes.
 
 Copyright (C) 2020 Nicholas H.Tollervey.
 """
-import structlog  # type: ignore
 import re
 from flask_babel import lazy_gettext as _  # type: ignore
-
-
-logger = structlog.get_logger()
 
 
 #: Default indicator at the start of a string to indicate it is a script.

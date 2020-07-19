@@ -11,6 +11,7 @@ import quart.flask_patch  # type: ignore # noqa
 import uuid
 import asyncio_redis  # type: ignore
 import textsmith.log  # noqa
+from typing import Tuple, Callable, Union
 from logging import getLogger
 from quart import (
     Quart,
@@ -22,6 +23,7 @@ from quart import (
     websocket,
     abort,
     current_app,
+    Response,
 )
 from quart.logging import default_handler
 from flask_babel import Babel  # type: ignore
@@ -196,7 +198,7 @@ async def on_start(app: Quart = app) -> None:
 
 
 @app.after_serving
-async def on_stop():
+async def on_stop() -> None:
     """
     Log that the application is stopping, for status update purposes.
     """
@@ -204,7 +206,7 @@ async def on_stop():
 
 
 @babel.localeselector
-def get_locale():
+def get_locale() -> None:
     """
     Get the locale for the current request.
     """
@@ -213,7 +215,7 @@ def get_locale():
 
 # ----------  ERROR HANDLERS
 @app.errorhandler(404)
-async def page_not_found(e):  # pragma: no cover
+async def page_not_found(e) -> Tuple[str, int]:  # pragma: no cover
     """
     Handle 404 Not Found.
     """
@@ -229,7 +231,7 @@ async def page_not_found(e):  # pragma: no cover
 
 
 @app.errorhandler(500)
-async def internal_server_error(e):  # pragma: no cover
+async def internal_server_error(e) -> Tuple[str, int]:  # pragma: no cover
     """
     Handle 500 Internal Server Error.
     """
@@ -246,7 +248,7 @@ async def internal_server_error(e):  # pragma: no cover
 
 # ----------  STATIC ENDPOINTS
 @app.route("/", methods=["GET"])
-async def home():
+async def home() -> str:
     """
     Render the homepage.
     """
@@ -261,7 +263,7 @@ async def home():
 
 
 @app.route("/thanks", methods=["GET"])
-async def thanks():
+async def thanks() -> str:
     """
     Render the thanks for signing up page.
     """
@@ -275,7 +277,7 @@ async def thanks():
 
 
 @app.route("/help", methods=["GET"])
-async def help():
+async def help() -> str:
     """
     Render the help page.
     """
@@ -290,7 +292,7 @@ async def help():
 
 
 @app.route("/conduct", methods=["GET"])
-async def conduct():
+async def conduct() -> str:
     """
     Render the code of conduct page.
     """
@@ -305,7 +307,7 @@ async def conduct():
 
 
 @app.route("/privacy", methods=["GET"])
-async def privacy():
+async def privacy() -> str:
     """
     Render the privacy statement page.
     """
@@ -320,7 +322,7 @@ async def privacy():
 
 
 @app.route("/welcome", methods=["GET"])
-async def welcome():
+async def welcome() -> str:
     """
     Render the welcome page when users have completed sign-up.
     """
@@ -336,7 +338,7 @@ async def welcome():
 
 
 @app.route("/client", methods=["GET"])
-async def client():
+async def client() -> Union[str, Response]:
     """
     Render the client assets needed by the browser to connect to the
     websocket. Will only work if the user is logged in.
@@ -371,7 +373,7 @@ async def sending(user_id: int, connection_id: str) -> None:
         )
 
 
-async def receiving(user_id: int, connection_id: str):
+async def receiving(user_id: int, connection_id: str) -> None:
     """
     Parse incoming data. Any resulting output will but put in the user's
     message queue.
@@ -387,7 +389,7 @@ async def receiving(user_id: int, connection_id: str):
         await current_app.parser.eval(user_id, connection_id, data)
 
 
-def require_user(func):
+def require_user(func) -> Callable:
     """
     A decorator for websocket connections.
 
@@ -412,7 +414,7 @@ def require_user(func):
     return wrapper
 
 
-def collect_websocket(func):
+def collect_websocket(func) -> Callable:
     """
     A decorator for websocket connections.
 
@@ -459,7 +461,7 @@ def collect_websocket(func):
 @app.websocket("/ws")
 @require_user
 @collect_websocket
-async def ws():
+async def ws() -> None:
     """
     Handle separate connections to the websocket endpoint.
     """
@@ -476,7 +478,7 @@ async def ws():
 
 # ----------  USER STATE HANDLERS
 @app.route("/login", methods=["GET", "POST"])
-async def login():
+async def login() -> Union[str, Response]:
     """
     Checks the credentials and creates a session.
     """
@@ -504,7 +506,7 @@ async def login():
 
 
 @app.route("/logout", methods=["GET"])
-async def logout():
+async def logout() -> Response:
     """
     Clear the user_id from the cookie.
     """
@@ -515,7 +517,7 @@ async def logout():
 
 
 @app.route("/signup", methods=["GET", "POST"])
-async def signup():
+async def signup() -> Union[str, Response]:
     """
     Renders and handles the signup page where new users sign up.
 
@@ -551,7 +553,7 @@ async def signup():
 
 
 @app.route("/confirm/<uuid:confirmation_token>", methods=["GET", "POST"])
-async def confirm(confirmation_token):
+async def confirm(confirmation_token) -> Union[str, Response]:
     """
     Given a valid confirmation token (uuid) created when the user signed up,
     gather password information for the user or raise a 404.

@@ -30,7 +30,7 @@ class Logic:
         email_port: int,
         email_from: str,
         email_password: str,
-    ):
+    ) -> None:
         """
         The datastore object contains methods for getting, setting and
         searching the permenant data store.
@@ -53,11 +53,12 @@ class Logic:
         else:
             return 0
 
-    async def set_last_seen(self, user_id):
+    async def set_last_seen(self, email: str) -> None:
         """
-        Set the last_seen timestamp to time.now() for the referenced user.
+        Set the last_seen timestamp to time.now() for the user with the
+        referenced email address.
         """
-        await self.datastore.set_last_seen(user_id)
+        await self.datastore.set_last_seen(email)
 
     async def check_email(self, email: str) -> bool:
         """
@@ -86,7 +87,9 @@ class Logic:
         message.set_content(_("This is a test... ") + confirmation_token)
         await self.send_email(message)
 
-    async def confirm_user(self, confirmation_token: str, password: str):
+    async def confirm_user(
+        self, confirmation_token: str, password: str
+    ) -> None:
         """
         Given the user has followed the link containing the confirmation token
         and successfully set a valid password: update their record, activate
@@ -118,7 +121,7 @@ class Logic:
             use_tls=True,
         )
 
-    async def emit_to_user(self, user_id: int, message: str):
+    async def emit_to_user(self, user_id: int, message: str) -> None:
         """
         Emit a message to the referenced user. All messages are run through
         Markdown.
@@ -131,7 +134,7 @@ class Logic:
 
     async def emit_to_room(
         self, room_id: int, exclude: Sequence[int], message: str
-    ):
+    ) -> None:
         """
         Emit a message to all users not in the exclude list in the referenced
         room.

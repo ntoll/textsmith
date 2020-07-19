@@ -23,7 +23,7 @@ class Parser:
     injection pattern.
     """
 
-    def __init__(self, logic: Logic):
+    def __init__(self, logic: Logic) -> None:
         """
         The logic object contains methods for implementing game logic and
         state transitions.
@@ -31,7 +31,9 @@ class Parser:
         self.logic = logic
         self.verbs = Verbs(self.logic)  # Built in verbs/functions.
 
-    async def eval(self, user_id: int, connection_id: str, message: str):
+    async def eval(
+        self, user_id: int, connection_id: str, message: str
+    ) -> None:
         """
         Evaluate the user's input message. If there's an error, recover by
         sending the error message from the associated exception object.
@@ -62,7 +64,7 @@ class Parser:
         message_id: str,
         message: str,
         exception: Exception,
-    ):
+    ) -> None:
         """
         Given an exception raised in the logic or parsing layer of the game,
         extract the useful message which explains what the problem is, and turn
@@ -88,7 +90,7 @@ class Parser:
 
     async def parse(
         self, user_id: int, connection_id: str, message_id: str, message: str
-    ):
+    ) -> None:
         """
         Parse the incoming message from the referenced user.
 

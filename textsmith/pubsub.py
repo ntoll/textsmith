@@ -128,7 +128,7 @@ class PubSub:
         else:
             return ""
 
-    async def stop(self):
+    async def stop(self) -> None:
         """
         Cleanly stop listening to the Redis PubSub.
         """
