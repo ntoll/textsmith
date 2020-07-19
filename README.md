@@ -4,7 +4,9 @@ A multi-user platform for creating, programming and interacting within text
 based literary worlds.
 
 A version of this game is hosted at
-[http://textsmith.org/](http://textsmith.org).
+[http://textsmith.org/](http://textsmith.org). The developer documentation
+(created from the `docs` directory) is hosted on
+[Read the Docs](https://textsmith.readthedocs.io/en/latest/).
 
 To run the game locally:
 
