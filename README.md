@@ -8,6 +8,7 @@ A version of this game is hosted at
 
 To run the game locally:
 
+* Ensure you have [Redis](https://redis.io/) running locally.
 * Within a virtualenv gather the requirements: `pip install -r
   requirements.txt`
 * Use the following command to launch the server: `make run`
@@ -37,6 +38,14 @@ within parenthesis, if the variable is not set):
   challenge in the signup form.
 * `RECAPTCHA_PRIVATE_KEY` (`"CHANGEME"`) - the private key for the reCaptcha
   v2 challenge in the signup form.
+* `TEXTSMITH_EMAIL_ADDRESS` (`"CHANGEME"`) - the email address of the account
+  TextSmith uses to send emails to users.
+* `TEXTSMITH_EMAIL_PASSWORD` (`"CHANGEME"`) - the password for the email
+  account TextSmith uses to send emails to users.
+* `TEXTSMITH_EMAIL_HOST` (`"CHANGEME"`) - the host for the email account
+  TextSmith uses to send emails to users.
+* `TEXTSMITH_EMAIL_PORT` (`"CHANGEME"`) - the port for the email account
+  TextSmith uses to send emails to users.
 
 JSON based structured logging is emitted to stdout. Each log entry is on a
 single line and contains a timestamp and details of the system upon which the
