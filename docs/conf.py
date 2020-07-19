@@ -52,7 +52,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 #
 html_theme = 'alabaster'
 html_theme_options = {
-    'description': 'A multi-user platform for text based literary worlds.'
+    'description': 'A multi-user platform for text based literary worlds.',
     'logo_name': True,
     'logo_text_align': 'center',
     'github_user': 'ntoll',
