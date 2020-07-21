@@ -35,10 +35,10 @@ else
 endif
 
 flake8:
-	flake8 --ignore=E231,W503 --exclude=docs
+	flake8 --ignore=E231,W503 --exclude=docs,textsmith/script/parser.py
 
 mypy:
-	find . \( -name _build -o -name var -o -path ./docs -o -path ./integration -o -path ./textsmith/mdx \) -type d -prune -o -name '*.py' -print0 | $(XARGS) mypy
+	find . \( -name _build -o -name var -o -path ./docs -o -path ./integration -o -path ./textsmith/mdx -o -path ./textsmith/script \) -type d -prune -o -name '*.py' -print0 | $(XARGS) mypy
 
 test: clean
 	pytest --random-order --disable-pytest-warnings

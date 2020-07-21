@@ -3,8 +3,7 @@ Contains definitions of verbs built into the system that encompass the core
 behaviours possible within the system.
 
 Copyright (C) 2020 Nicholas H.Tollervey (ntoll@ntoll.org).
-"""
-"""
+
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the

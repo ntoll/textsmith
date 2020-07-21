@@ -3,8 +3,7 @@ Functions that CRUD state stored in a Redis datastore. Data for objects is
 stored in Redis Hashes whose values are serialized as strings of JSON.
 
 Copyright (C) 2020 Nicholas H.Tollervey (ntoll@ntoll.org).
-"""
-"""
+
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the

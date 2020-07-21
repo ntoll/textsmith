@@ -3,8 +3,7 @@ Functions for parsing the user input. Calls into the game logic layer to affect
 changes and read data from the datastore.
 
 Copyright (C) 2020 Nicholas H.Tollervey (ntoll@ntoll.org).
-"""
-"""
+
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
