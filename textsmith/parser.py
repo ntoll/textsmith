@@ -193,6 +193,8 @@ class Parser:
           ``None``.
         * ``indirect_object`` - either the matching object or raw string for
           the indirect object. This could be ``None``.
+        * ``raw_input`` - the raw (html escaped) string from the user that
+          caused the script to be run.
 
         The user, room, direct_object and indirect_object objects can all be
         passed to a special "emit" function along with a message to display to
