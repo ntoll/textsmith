@@ -25,7 +25,11 @@ async def test_set_get_delete_object(datastore):  # noqa
         boolean=boolean,
         list_stuff=list_stuff,
     )
-    objects = await datastore.get_objects([object_id,])
+    objects = await datastore.get_objects(
+        [
+            object_id,
+        ]
+    )
     obj = objects[object_id]
     assert obj["id"] == object_id
     assert obj["name"] == name
@@ -34,7 +38,11 @@ async def test_set_get_delete_object(datastore):  # noqa
     assert obj["boolean"] == boolean
     assert obj["list_stuff"] == list_stuff
     await datastore.delete_object(object_id)
-    objects = await datastore.get_objects([object_id,])
+    objects = await datastore.get_objects(
+        [
+            object_id,
+        ]
+    )
     assert len(objects) == 0
 
 
@@ -45,17 +53,29 @@ async def test_update_delete_object(datastore):  # noqa
     """
     object_id = await datastore.add_object(name="test")
     # Ensure the object is in a default state.
-    objects = await datastore.get_objects([object_id,])
+    objects = await datastore.get_objects(
+        [
+            object_id,
+        ]
+    )
     obj = objects[object_id]
     assert obj == {"id": object_id, "name": "test"}
     # Update the object with a new field.
     await datastore.annotate_object(object_id, size=42)
-    objects = await datastore.get_objects([object_id,])
+    objects = await datastore.get_objects(
+        [
+            object_id,
+        ]
+    )
     obj = objects[object_id]
     assert obj == {"id": object_id, "name": "test", "size": 42}
     # Update an existing field.
     await datastore.annotate_object(object_id, size=3.141)
-    objects = await datastore.get_objects([object_id,])
+    objects = await datastore.get_objects(
+        [
+            object_id,
+        ]
+    )
     obj = objects[object_id]
     assert obj == {"id": object_id, "name": "test", "size": 3.141}
     # Get the value of a specific field.
@@ -65,11 +85,25 @@ async def test_update_delete_object(datastore):  # noqa
     with pytest.raises(KeyError):
         await datastore.get_attribute(object_id, "foo")
     # Delete the attribute.
-    assert 1 == await datastore.delete_attributes(object_id, ["size",])
-    objects = await datastore.get_objects([object_id,])
+    assert 1 == await datastore.delete_attributes(
+        object_id,
+        [
+            "size",
+        ],
+    )
+    objects = await datastore.get_objects(
+        [
+            object_id,
+        ]
+    )
     obj = objects[object_id]
     assert obj == {"id": object_id, "name": "test"}
-    assert 0 == await datastore.delete_attributes(object_id, ["foo",])
+    assert 0 == await datastore.delete_attributes(
+        object_id,
+        [
+            "foo",
+        ],
+    )
 
 
 @pytest.mark.asyncio
@@ -100,7 +134,11 @@ async def test_user_journey_in_data(datastore):  # noqa
     assert object_id > 0
     # The object representing the user in the game is marked as a user's
     # object.
-    user_obj = await datastore.get_objects([object_id,])
+    user_obj = await datastore.get_objects(
+        [
+            object_id,
+        ]
+    )
     user_obj = user_obj[object_id]
     assert user_obj[constants.IS_USER] is True
     # We can get the email address from the metadata via the confirmation

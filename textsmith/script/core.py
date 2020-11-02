@@ -1,5 +1,5 @@
 """
-Buil-in functions.
+Built-in functions of the scripting language.
 """
 from functools import reduce, wraps
 
@@ -110,7 +110,9 @@ def _lt(context, *args):
     """
     Indicate if the first argument is less than the second argument.
 
-    (< 10
+    (< 10 100)
+    true
+
     """
     if len(args) == 2:
         return args[0] < args[1]
@@ -185,8 +187,7 @@ def _in(context, *args):
 
 
 def _slice(context, *args):
-    """
-    """
+    """"""
 
 
 def _first(context, *args):

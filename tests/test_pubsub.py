@@ -60,7 +60,9 @@ async def test_subscribe(subscriber):
         assert user_id in ps.connected_users
         assert isinstance(ps.connected_users[user_id], asyncio.Queue)
         ps.subscriber.subscribe.assert_called_once_with(
-            [str(user_id),]
+            [
+                str(user_id),
+            ]
         )
         mock_logger.msg.assert_called_once_with(
             "Subscribe.", user_id=user_id, connection_id=connection_id
@@ -89,7 +91,9 @@ async def test_unsubscribe(subscriber):
         await ps.unsubscribe(user_id, connection_id)
         assert user_id not in ps.connected_users
         ps.subscriber.unsubscribe.assert_called_once_with(
-            [str(user_id),]
+            [
+                str(user_id),
+            ]
         )
         assert mock_logger.msg.call_count == 1
         await ps.stop()

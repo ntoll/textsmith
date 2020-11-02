@@ -204,12 +204,24 @@ async def test_emit_to_room(logic):
     logic.emit_to_user = mock.AsyncMock()
     logic.datastore.get_contents = mock.AsyncMock(
         return_value={
-            user_id: {"id": user_id, constants.IS_USER: True,},
-            other_user: {"id": other_user, constants.IS_USER: True,},
+            user_id: {
+                "id": user_id,
+                constants.IS_USER: True,
+            },
+            other_user: {
+                "id": other_user,
+                constants.IS_USER: True,
+            },
             other_object: {"id": other_object},
         }
     )
-    await logic.emit_to_room(room_id, [user_id,], msg)
+    await logic.emit_to_room(
+        room_id,
+        [
+            user_id,
+        ],
+        msg,
+    )
     logic.datastore.get_contents.assert_called_once_with(room_id)
     logic.emit_to_user.assert_called_once_with(other_user, msg)
 
@@ -225,8 +237,14 @@ async def test_get_user_context(logic):
     connection_id = str(uuid4())
     message_id = str(uuid4())
     context = {
-        "user": {"id": user_id, constants.IS_USER: True,},
-        "room": {"id": room_id, constants.IS_ROOM: True,},
+        "user": {
+            "id": user_id,
+            constants.IS_USER: True,
+        },
+        "room": {
+            "id": room_id,
+            constants.IS_ROOM: True,
+        },
     }
     logic.datastore.get_user_context = mock.AsyncMock(return_value=context)
     result = await logic.get_user_context(user_id, connection_id, message_id)
@@ -245,11 +263,31 @@ async def test_get_script_context(logic):
     connection_id = str(uuid4())
     message_id = str(uuid4())
     context = {
-        "user": {"id": user_id, constants.IS_USER: True,},
-        "room": {"id": room_id, constants.IS_ROOM: True,},
-        "exits": [{"id": 234, constants.IS_EXIT: True,}],
-        "users": [{"id": 345, constants.IS_USER: True,}],
-        "things": [{"id": 456,}],
+        "user": {
+            "id": user_id,
+            constants.IS_USER: True,
+        },
+        "room": {
+            "id": room_id,
+            constants.IS_ROOM: True,
+        },
+        "exits": [
+            {
+                "id": 234,
+                constants.IS_EXIT: True,
+            }
+        ],
+        "users": [
+            {
+                "id": 345,
+                constants.IS_USER: True,
+            }
+        ],
+        "things": [
+            {
+                "id": 456,
+            }
+        ],
     }
     logic.datastore.get_script_context = mock.AsyncMock(return_value=context)
     result = await logic.get_script_context(user_id, connection_id, message_id)
@@ -270,7 +308,12 @@ async def test_get_attribute_value(logic):
         "int": 1234,
         "float": 1.234,
         "bool": True,
-        "list": ["This", "is", "a", "list",],
+        "list": [
+            "This",
+            "is",
+            "a",
+            "list",
+        ],
     }
     # String values.
     result = await logic.get_attribute_value(obj, "name")
@@ -321,9 +364,19 @@ def test_match_object_special_aliases(logic):
         "room": {"id": room_id, constants.IS_ROOM: True},
     }
     for word in constants.USER_ALIASES:
-        assert logic.match_object(word, context) == ([context["user"],], word)
+        assert logic.match_object(word, context) == (
+            [
+                context["user"],
+            ],
+            word,
+        )
     for word in constants.ROOM_ALIASES:
-        assert logic.match_object(word, context) == ([context["room"],], word)
+        assert logic.match_object(word, context) == (
+            [
+                context["room"],
+            ],
+            word,
+        )
 
 
 def test_match_object_by_object_id(logic):
@@ -336,31 +389,61 @@ def test_match_object_by_object_id(logic):
     other_user_id = 345
     thing_id = 456
     context = {
-        "user": {"id": user_id, constants.IS_USER: True,},
-        "room": {"id": room_id, constants.IS_ROOM: True,},
-        "exits": [{"id": exit_id, constants.IS_EXIT: True,}],
-        "users": [{"id": other_user_id, constants.IS_USER: True,}],
-        "things": [{"id": thing_id,}],
+        "user": {
+            "id": user_id,
+            constants.IS_USER: True,
+        },
+        "room": {
+            "id": room_id,
+            constants.IS_ROOM: True,
+        },
+        "exits": [
+            {
+                "id": exit_id,
+                constants.IS_EXIT: True,
+            }
+        ],
+        "users": [
+            {
+                "id": other_user_id,
+                constants.IS_USER: True,
+            }
+        ],
+        "things": [
+            {
+                "id": thing_id,
+            }
+        ],
     }
     assert logic.match_object("#98765", context) == ([], "")
     assert logic.match_object(f"#{user_id}", context) == (
-        [context["user"],],
+        [
+            context["user"],
+        ],
         f"#{user_id}",
     )
     assert logic.match_object(f"#{room_id}", context) == (
-        [context["room"],],
+        [
+            context["room"],
+        ],
         f"#{room_id}",
     )
     assert logic.match_object(f"#{exit_id}", context) == (
-        [context["exits"][0],],
+        [
+            context["exits"][0],
+        ],
         f"#{exit_id}",
     )
     assert logic.match_object(f"#{other_user_id}", context) == (
-        [context["users"][0],],
+        [
+            context["users"][0],
+        ],
         f"#{other_user_id}",
     )
     assert logic.match_object(f"#{thing_id}", context) == (
-        [context["things"][0],],
+        [
+            context["things"][0],
+        ],
         f"#{thing_id}",
     )
 
@@ -383,8 +466,16 @@ def test_match_object_by_name_or_alias(logic):
             constants.IS_USER: True,
             constants.NAME: "user 1",
         },
-        "room": {"id": room_id, constants.IS_ROOM: True,},
-        "exits": [{"id": exit_id, constants.IS_EXIT: True,}],
+        "room": {
+            "id": room_id,
+            constants.IS_ROOM: True,
+        },
+        "exits": [
+            {
+                "id": exit_id,
+                constants.IS_EXIT: True,
+            }
+        ],
         "users": [
             {
                 "id": other_user_id,
@@ -408,24 +499,36 @@ def test_match_object_by_name_or_alias(logic):
     }
     assert logic.match_object("not a match", context) == ([], "")
     assert logic.match_object("user 1", context) == (
-        [context["user"],],
+        [
+            context["user"],
+        ],
         "user 1",
     )
     assert logic.match_object("user 2", context) == (
-        [context["users"][0],],
+        [
+            context["users"][0],
+        ],
         "user 2",
     )
     assert logic.match_object("another alias", context) == (
-        [context["users"][0], context["things"][0],],
+        [
+            context["users"][0],
+            context["things"][0],
+        ],
         "another alias",
     )
     assert logic.match_object("a thing", context) == (
-        [context["things"][0], context["things"][1],],
+        [
+            context["things"][0],
+            context["things"][1],
+        ],
         "a thing",
     )
     # Match shortest token from start of name or alias.
     assert logic.match_object("user 1 foo bar baz", context) == (
-        [context["user"],],
+        [
+            context["user"],
+        ],
         "user 1",
     )
 
@@ -450,7 +553,10 @@ def test_matches_name_by_alias(logic):
     obj = {
         "id": 123,
         constants.NAME: "name",
-        constants.ALIAS: ["alias 1", "ALias 2",],
+        constants.ALIAS: [
+            "alias 1",
+            "ALias 2",
+        ],
     }
     assert logic.matches_name("aliAS 2", obj) is True
 
@@ -463,7 +569,10 @@ def test_matches_name_no_match_is_false(logic):
     obj = {
         "id": 123,
         constants.NAME: "name",
-        constants.ALIAS: ["alias 1", "alias 2",],
+        constants.ALIAS: [
+            "alias 1",
+            "alias 2",
+        ],
     }
     assert logic.matches_name("not a match", obj) is False
 
@@ -477,7 +586,13 @@ async def test_clarify_object(logic):
     user_id = 123
     message = "This is a test message."
     match = [
-        {"id": 234, constants.NAME: "test", constants.ALIAS: ["foo",]},
+        {
+            "id": 234,
+            constants.NAME: "test",
+            constants.ALIAS: [
+                "foo",
+            ],
+        },
         {
             "id": 345,
             constants.NAME: "something",

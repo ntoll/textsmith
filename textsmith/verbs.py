@@ -59,7 +59,11 @@ class Verbs:
                 # Say something.
                 ("say",): self._say,
                 # Shout something.
-                ("shout", "scream", "holler",): self._shout,
+                (
+                    "shout",
+                    "scream",
+                    "holler",
+                ): self._shout,
                 # Emote something.
                 ("emote",): self._emote,
                 # Tell something to someone.
@@ -122,7 +126,11 @@ class Verbs:
                     username=username, message=message
                 )
                 await self.logic.emit_to_room(
-                    context["room"]["id"], [user_id,], room_message
+                    context["room"]["id"],
+                    [
+                        user_id,
+                    ],
+                    room_message,
                 )
 
     async def _shout(
@@ -156,7 +164,11 @@ class Verbs:
                     '> {username} shouts, "**{message}**".'
                 ).format(username=username, message=message)
                 await self.logic.emit_to_room(
-                    context["room"]["id"], [user_id,], room_message
+                    context["room"]["id"],
+                    [
+                        user_id,
+                    ],
+                    room_message,
                 )
 
     async def _emote(
@@ -186,7 +198,11 @@ class Verbs:
             await self.logic.emit_to_user(user_id, emoted)
             if "room" in context:
                 await self.logic.emit_to_room(
-                    context["room"]["id"], [user_id,], emoted
+                    context["room"]["id"],
+                    [
+                        user_id,
+                    ],
+                    emoted,
                 )
 
     async def _tell(
@@ -242,7 +258,12 @@ class Verbs:
                     await self.logic.emit_to_user(recipient_id, recipient_msg)
                     if room_id:
                         await self.logic.emit_to_room(
-                            room_id, [user_id, recipient_id,], room_msg
+                            room_id,
+                            [
+                                user_id,
+                                recipient_id,
+                            ],
+                            room_msg,
                         )
             elif matches == 0:
                 await self.logic.no_matching_object(user_id, "@" + message)

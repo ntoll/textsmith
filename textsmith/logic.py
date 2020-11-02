@@ -265,14 +265,21 @@ class Logic:
         # Simple special aliases.
         words = identifier.split()
         if words[0] in constants.USER_ALIASES:
-            return [context["user"],], words[0]
+            return [
+                context["user"],
+            ], words[0]
         if words[0] in constants.ROOM_ALIASES:
-            return [context["room"],], words[0]
+            return [
+                context["room"],
+            ], words[0]
 
         # Candidate objects are things in the current context to which the user
         # may refer.
         candidate_objects = (
-            [context["user"], context["room"],]
+            [
+                context["user"],
+                context["room"],
+            ]
             + context["exits"]
             + context["users"]
             + context["things"]
@@ -342,7 +349,13 @@ class Logic:
             object_details.append(f"  {name} (#{obj_id}) [{aliases}]")
         matched_objects = "\n".join(object_details)
         response = "\n\n".join(
-            [preamble, message, object_intro, matched_objects, request,]
+            [
+                preamble,
+                message,
+                object_intro,
+                matched_objects,
+                request,
+            ]
         )
         await self.emit_to_user(
             user_id, constants.SYSTEM_OUTPUT.format(response)
@@ -359,7 +372,13 @@ class Logic:
         request = _(
             "Please try to be more specific (an object's ID is unique)."
         )
-        response = "\n\n".join([preamble, message, request,])
+        response = "\n\n".join(
+            [
+                preamble,
+                message,
+                request,
+            ]
+        )
         await self.emit_to_user(
             user_id, constants.SYSTEM_OUTPUT.format(response)
         )

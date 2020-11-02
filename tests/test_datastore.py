@@ -526,7 +526,9 @@ async def test_set_container_limbo(datastore):
         datastore.inventory_key(321), [json.dumps(object_id)]
     )
     mock_transaction.delete.assert_called_once_with(
-        [datastore.location_key(object_id),]
+        [
+            datastore.location_key(object_id),
+        ]
     )
     mock_transaction.exec.assert_called_once_with()
 
@@ -538,7 +540,11 @@ async def test_get_contents(datastore):
     a dictionary representation of those objects.
     """
     datastore.redis.smembers_asset = mock.AsyncMock(
-        return_value=["1", "2", "3",]
+        return_value=[
+            "1",
+            "2",
+            "3",
+        ]
     )
     objects = {1: {"id": 1}, 2: {"id": 2}, 3: {"id": 3}}
     datastore.get_objects = mock.AsyncMock(return_value=objects)
@@ -566,7 +572,10 @@ async def test_get_user_context(datastore):
     }
     datastore.get_location = mock.AsyncMock(return_value=room_id)
     datastore.get_objects = mock.AsyncMock(
-        return_value={user_id: user_dict, room_id: room_dict,}
+        return_value={
+            user_id: user_dict,
+            room_id: room_dict,
+        }
     )
     result = await datastore.get_user_context(user_id)
     assert result["user"] == user_dict

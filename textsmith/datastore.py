@@ -431,7 +431,8 @@ class DataStore:
         else:
             msg = "Unable to confirm user with token."
             logger.msg(
-                msg, confirmation_token=confirmation_token,
+                msg,
+                confirmation_token=confirmation_token,
             )
             raise ValueError(msg)
         try:
@@ -601,17 +602,25 @@ class DataStore:
             # If required, remove object from old container.
             if old_container_id:
                 await transaction.srem(
-                    self.inventory_key(json.loads(old_container_id)), [id_val,]
+                    self.inventory_key(json.loads(old_container_id)),
+                    [
+                        id_val,
+                    ],
                 )
             if container_id < 0:
                 # The object is not contained.
                 await transaction.delete(
-                    [location_key,]
+                    [
+                        location_key,
+                    ]
                 )
             else:
                 # Add object to new container.
                 await transaction.sadd(
-                    self.inventory_key(container_id), [id_val,]
+                    self.inventory_key(container_id),
+                    [
+                        id_val,
+                    ],
                 )
                 # Point object to new container.
                 await transaction.set(location_key, json.dumps(container_id))

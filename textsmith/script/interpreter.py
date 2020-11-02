@@ -82,7 +82,9 @@ def evaluate_assign(parsed, context):
     if isinstance(item, Access):
         # Recursive lookup to get the the correct dictionary.
         dict_object = context[item.object_name]
-        new_args = [None,] + item.attribute
+        new_args = [
+            None,
+        ] + item.attribute
         return evaluate_assign(new_args, dict_object)
     elif isinstance(item, Symbol):
         value = evaluate(parsed[2], context)

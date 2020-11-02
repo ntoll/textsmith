@@ -21,8 +21,8 @@ intelligence is what you should aim for.
 * This is a new community. *No-one knows what they are doing*, so, get
   involved.
 
-We expect contributors to follow the spirit of our
-[code_of_conduct](code_of_conduct.md).
+We welcome contributors who show 
+[a compassionate and tolerant spirit of being together](code_of_conduct.md).
 
 Feedback may be given for contributions and, where necessary, changes will
 be politely requested and discussed with the originating author. Respectful
@@ -44,7 +44,7 @@ this repository.
   therein.
 * We have 100% test coverage - include tests to maintain this!
 * **Before submitting code ensure coding standards and test coverage by
-  running**::
+  running**:
 ```
     make check
 ```

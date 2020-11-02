@@ -1,25 +1,31 @@
-# Code of Conduct
+# On Being Together
 
-We are sentient.
-To be sentient is to be limited.
-In our limitation, we make choices that are unwise or are flawed.
+<p>When working together or if things go wrong,<br/>
+we acknowledge and work through differences.<br/>
+In so doing, we transform and enlarge each other.</p>
 
-If we make unwise choices because of our limitation,
-we cannot judge others for the same reason.
+<p>To nurture our mutual growth,</p>
 
-So, we cannot judge,
-thus we forgive.
+<p>&nbsp;&nbsp;&nbsp;&nbsp;this is a place of<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;learning, understanding, and sharing;</p>
 
-This project and its results are intended as:
-a place of learning,
-a place of understanding,
-a place of teaching,
-a place of sharing,
-a place of creators creating the tools for other creators to create complicated things elegantly.
+<p>&nbsp;&nbsp;&nbsp;&nbsp;this is a place to<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;affirm tolerance and compassion;</p>
 
-Be well, Creator. Be well and create.
+<p>&nbsp;&nbsp;&nbsp;&nbsp;this is a place for<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;collaborative creativity.</p>
+
+<p>All the aspects of yourself you choose to bring to this place<br/>
+are welcome here.</p>
+
+<p>Reciprocate! Welcome, embrace and learn from others<br/>
+(even in the face of apparent hostility or misunderstanding).</p>
+
+<p>To act against this spirit invites ostracism,<br/>
+a loss that diminishes us all.</p>
+
+<p>Thank you.</p>
 
 ---
 
-Based on the [Creator's Code v2](https://github.com/Xe/creators-code). Please
-read the link for more information.
+From [here](https://github.com/ntoll/being_together).

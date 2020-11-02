@@ -56,7 +56,9 @@ class PubSub:
         self.connected_users[user_id] = asyncio.Queue()
         try:
             await self.subscriber.subscribe(
-                [str(user_id),]
+                [
+                    str(user_id),
+                ]
             )
         except (Error, ErrorReply) as ex:  # pragma: no cover
             logger.msg(
@@ -78,7 +80,9 @@ class PubSub:
         self.connected_users.pop(user_id, None)
         try:
             await self.subscriber.unsubscribe(
-                [str(user_id),]
+                [
+                    str(user_id),
+                ]
             )
         except (Error, ErrorReply) as ex:  # pragma: no cover
             logger.msg(
@@ -115,7 +119,9 @@ class PubSub:
                     value=message.value,
                 )
             except StopIteration:  # pragma: no cover
-                logger.msg("Broken subscriber.",)
+                logger.msg(
+                    "Broken subscriber.",
+                )
                 self.listening = False
                 break
             except (Error, ErrorReply) as ex:  # pragma: no cover

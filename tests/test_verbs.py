@@ -110,7 +110,10 @@ async def test_say(
                 constants.IS_USER: True,
                 constants.NAME: username,
             },
-            "room": {"id": room_id, constants.IS_ROOM: True,},
+            "room": {
+                "id": room_id,
+                constants.IS_ROOM: True,
+            },
         }
     )
     verbs.logic.emit_to_user = mock.AsyncMock()
@@ -120,7 +123,11 @@ async def test_say(
         user_id, f'> You say, "*{message}*".'
     )
     verbs.logic.emit_to_room.assert_called_once_with(
-        room_id, [user_id,], f'> {username} says, "*{message}*".'
+        room_id,
+        [
+            user_id,
+        ],
+        f'> {username} says, "*{message}*".',
     )
 
 
@@ -139,7 +146,10 @@ async def test_say_whitespace(
                 constants.IS_USER: True,
                 constants.NAME: username,
             },
-            "room": {"id": room_id, constants.IS_ROOM: True,},
+            "room": {
+                "id": room_id,
+                constants.IS_ROOM: True,
+            },
         }
     )
     verbs.logic.emit_to_user = mock.AsyncMock()
@@ -165,7 +175,10 @@ async def test_shout(
                 constants.IS_USER: True,
                 constants.NAME: username,
             },
-            "room": {"id": room_id, constants.IS_ROOM: True,},
+            "room": {
+                "id": room_id,
+                constants.IS_ROOM: True,
+            },
         }
     )
     verbs.logic.emit_to_user = mock.AsyncMock()
@@ -175,7 +188,11 @@ async def test_shout(
         user_id, f'> You shout, "**{message}**".'
     )
     verbs.logic.emit_to_room.assert_called_once_with(
-        room_id, [user_id,], f'> {username} shouts, "**{message}**".'
+        room_id,
+        [
+            user_id,
+        ],
+        f'> {username} shouts, "**{message}**".',
     )
 
 
@@ -194,7 +211,10 @@ async def test_shout_whitespace(
                 constants.IS_USER: True,
                 constants.NAME: username,
             },
-            "room": {"id": room_id, constants.IS_ROOM: True,},
+            "room": {
+                "id": room_id,
+                constants.IS_ROOM: True,
+            },
         }
     )
     verbs.logic.emit_to_user = mock.AsyncMock()
@@ -220,7 +240,10 @@ async def test_emote(
                 constants.IS_USER: True,
                 constants.NAME: username,
             },
-            "room": {"id": room_id, constants.IS_ROOM: True,},
+            "room": {
+                "id": room_id,
+                constants.IS_ROOM: True,
+            },
         }
     )
     verbs.logic.emit_to_user = mock.AsyncMock()
@@ -229,7 +252,11 @@ async def test_emote(
     expected = f"{username} {message}"
     verbs.logic.emit_to_user.assert_called_once_with(user_id, expected)
     verbs.logic.emit_to_room.assert_called_once_with(
-        room_id, [user_id,], expected
+        room_id,
+        [
+            user_id,
+        ],
+        expected,
     )
 
 
@@ -248,7 +275,10 @@ async def test_emote_whitespace(
                 constants.IS_USER: True,
                 constants.NAME: username,
             },
-            "room": {"id": room_id, constants.IS_ROOM: True,},
+            "room": {
+                "id": room_id,
+                constants.IS_ROOM: True,
+            },
         }
     )
     verbs.logic.emit_to_user = mock.AsyncMock()
@@ -281,7 +311,9 @@ async def test_tell(verbs, user_id, room_id, connection_id, message_id):
                     "id": 2222,
                     constants.IS_EXIT: True,
                     constants.NAME: "A path",
-                    constants.ALIAS: ["path",],
+                    constants.ALIAS: [
+                        "path",
+                    ],
                 },
             ],
             "users": [
@@ -289,13 +321,19 @@ async def test_tell(verbs, user_id, room_id, connection_id, message_id):
                     "id": 3333,
                     constants.IS_USER: True,
                     constants.NAME: "Fred",
-                    constants.ALIAS: ["Freddy", "Freddo",],
+                    constants.ALIAS: [
+                        "Freddy",
+                        "Freddo",
+                    ],
                 },
                 {
                     "id": 4444,
                     constants.IS_USER: True,
                     constants.NAME: "Alice",
-                    constants.ALIAS: ["Al", "Ali",],
+                    constants.ALIAS: [
+                        "Al",
+                        "Ali",
+                    ],
                 },
             ],
             "things": [],
@@ -336,7 +374,10 @@ async def test_tell_whitespace(
                 constants.IS_USER: True,
                 constants.NAME: username,
             },
-            "room": {"id": room_id, constants.IS_ROOM: True,},
+            "room": {
+                "id": room_id,
+                constants.IS_ROOM: True,
+            },
         }
     )
     verbs.logic.emit_to_user = mock.AsyncMock()
@@ -371,7 +412,9 @@ async def test_tell_too_many_matches(
                     "id": 2222,
                     constants.IS_EXIT: True,
                     constants.NAME: "A path",
-                    constants.ALIAS: ["path",],
+                    constants.ALIAS: [
+                        "path",
+                    ],
                 },
             ],
             "users": [
@@ -385,7 +428,11 @@ async def test_tell_too_many_matches(
                     "id": 4444,
                     constants.IS_USER: True,
                     constants.NAME: "Alice",
-                    constants.ALIAS: ["Al", "Ali", "user",],
+                    constants.ALIAS: [
+                        "Al",
+                        "Ali",
+                        "user",
+                    ],
                 },
             ],
             "things": [],
@@ -408,7 +455,11 @@ async def test_tell_too_many_matches(
                 "id": 4444,
                 constants.IS_USER: True,
                 constants.NAME: "Alice",
-                constants.ALIAS: ["Al", "Ali", "user",],
+                constants.ALIAS: [
+                    "Al",
+                    "Ali",
+                    "user",
+                ],
             },
         ],
     )
@@ -439,7 +490,9 @@ async def test_tell_no_matches(
                     "id": 2222,
                     constants.IS_EXIT: True,
                     constants.NAME: "A path",
-                    constants.ALIAS: ["path",],
+                    constants.ALIAS: [
+                        "path",
+                    ],
                 },
             ],
             "users": [
@@ -453,7 +506,11 @@ async def test_tell_no_matches(
                     "id": 4444,
                     constants.IS_USER: True,
                     constants.NAME: "Alice",
-                    constants.ALIAS: ["Al", "Ali", "user",],
+                    constants.ALIAS: [
+                        "Al",
+                        "Ali",
+                        "user",
+                    ],
                 },
             ],
             "things": [],
